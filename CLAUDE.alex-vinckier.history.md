@@ -140,4 +140,18 @@ is always Q1): every calendar month, every month of an April fiscal year, bounda
 year-boundary rollover, July-FY spot checks, and prefix variants. Toolchain green
 (ruff/black/mypy 20 files/pytest 63).
 
-Next up: add the CI workflow; then task 7 (logging — structlog + the SSE log-stream backend).
+## 2026-06-19 — WORKPLAN task 7: Logging (structlog) + clock helper
+
+Added `monitoring/logging_config.py` `configure_logging(LoggingConfig)` mirroring HEC:
+structlog→stdlib pipeline, two root handlers (rotating JSON file `logs/billtobox_agent.log`
++ stderr ConsoleRenderer), shared processors with a local-tz (Europe/Brussels) ISO
+timestamper, idempotent handler-tagging, and WARNING-quieting for chatty HTTP libs. Added
+`utils/clock.py` (`LOCAL_TZ`, `now_local`, `to_local`). The JSON file is what task 18's
+`/logs` SSE stream will tail. 7 tests mirror HEC's (file/dir creation, ISO+level round-trip,
+contextvars, stdlib routing, idempotency, foreign-handler preservation, level threshold).
+Toolchain green (ruff/black/mypy 22 files/pytest 70).
+
+The `configure_logging` call gets wired into the entry points when those are built — the
+worker (tasks 17/21) and the dashboard `main.py` (task 18).
+
+Next up: add the CI workflow; then task 8 (Gmail read-only fetch + OAuth consent bootstrap).
