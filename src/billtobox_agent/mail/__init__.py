@@ -1,6 +1,7 @@
 """Mail source connectors: Gmail, Outlook (Graph), and the Doccle stub (tasks 8-11)."""
 
 from billtobox_agent.mail.base import FetchedPdf, MailConnector, MailMessageRef
+from billtobox_agent.mail.doccle import DoccleConnector
 from billtobox_agent.mail.fetch import fetch_new_pdfs
 from billtobox_agent.mail.gmail import GMAIL_QUERY, GmailConnector
 from billtobox_agent.mail.google_auth import (
@@ -23,6 +24,7 @@ __all__ = [
     "GMAIL_QUERY",
     "GOOGLE_SCOPES",
     "MS_SCOPES",
+    "DoccleConnector",
     "FetchedPdf",
     "GmailConnector",
     "GoogleAuthError",

@@ -190,4 +190,14 @@ refs parsed, non-PDF attachment skipped + bytes decoded, watermark advances, ded
 source_message_id. Output type-matches Gmail (`FetchedPdf`). Toolchain green (ruff/black/mypy
 29 files/pytest 80).
 
-Next up: add the CI workflow; then task 10 (Doccle stub).
+## 2026-06-19 — WORKPLAN task 10: Doccle stub
+
+Added `mail/doccle.py` — `DoccleConnector` matching the `MailConnector` shape (source=
+"doccle", `search`/`download_pdfs`/`from_config`), every method raising `NotImplementedError`
+with a `# TODO: confirm Doccle API` marker pending the API spec + credentials. Default
+`sources.polling` excludes doccle so the worker never builds it. 4 unit tests (module
+importable at the expected path; search/download/from_config raise). Toolchain green
+(ruff/black/mypy 30 files/pytest 84). Phase 1 plumbing connectors complete.
+
+Next up: add the CI workflow; then task 11 (pre-filter heuristics — sender/subject/PDF magic
+bytes).
