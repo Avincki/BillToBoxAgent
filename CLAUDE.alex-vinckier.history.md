@@ -129,4 +129,15 @@ tests, and an Alembic upgrade→downgrade integration test. Toolchain green: ruf
 mypy ✓ (19 files), pytest ✓ (30). One harmless alembic `path_separator` DeprecationWarning
 (kept alembic.ini matching HEC).
 
-Next up: add the CI workflow; then task 6 (`period_for` accounting-quarter logic).
+## 2026-06-19 — WORKPLAN task 6: Accounting-quarter logic (`period_for`)
+
+Implemented the pure `period_for(invoice_date, fy_start_month=1, fy_label_prefix="")
+-> (fy_label, quarter)` in `extraction/period.py` (no I/O). Calendar quarters by default;
+offset fiscal years via `fy_start_month` (the FY is labelled by its start year, so Jan-Mar
+fall in Q4 of the prior label). Validates `fy_start_month` is 1-12. 33 tests including a
+hypothesis property (quarter always Q1-Q4, label is the start year, the fiscal-start month
+is always Q1): every calendar month, every month of an April fiscal year, boundary months,
+year-boundary rollover, July-FY spot checks, and prefix variants. Toolchain green
+(ruff/black/mypy 20 files/pytest 63).
+
+Next up: add the CI workflow; then task 7 (logging — structlog + the SSE log-stream backend).
