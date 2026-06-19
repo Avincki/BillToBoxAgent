@@ -201,3 +201,26 @@ importable at the expected path; search/download/from_config raise). Toolchain g
 
 Next up: add the CI workflow; then task 11 (pre-filter heuristics — sender/subject/PDF magic
 bytes).
+
+## 2026-06-20 — WORKPLAN task 11: Pre-filter heuristics
+
+Added `mail/prefilter.py` — `prefilter(ref, pdf_bytes, config) -> bool`, the cheap
+model-free gate that runs before any Claude call so junk never reaches the paid
+extraction. Three signals: (1) PDF magic bytes (`%PDF-` prefix; empty/non-PDF →
+reject), (2) sender domain allow/blocklist, (3) subject keywords. Semantics chosen
+for an invoice agent whose vendors can't be enumerated in advance: **blocklist wins**
+(hard reject), **allowlist is trust/bypass** (accept regardless of subject), and any
+other sender must carry a keyword (`invoice`/`factuur`/`rekening`/`btw`) in the
+subject. Domain match is dot-anchored suffix (`kpn.com` matches `mail.kpn.com` but
+not `evil-kpn.com`); sender parsed via `email.utils.parseaddr` so display-name forms
+(`KPN <billing@kpn.com>`) work. All three lists are config-driven via a new
+`PrefilterConfig` (added to `AppConfig`, documented in `config.example.yaml`).
+
+16 unit tests (`tests/unit/test_prefilter.py`): PDF/non-PDF/empty bytes, keyword
+case-insensitivity + substring + config override, allowlist bypass + subdomain +
+display-name + the evil-kpn anti-match, blocklist hard-reject + blocklist-beats-
+allowlist + subdomain, and unparseable-sender fall-through. Toolchain green:
+ruff ✓, ruff-format ✓, black ✓, mypy ✓ (31 files), pytest ✓ (100, up from 84).
+
+Next up: add the CI workflow; then task 12 (content-hash dedup) — `prefilter` and the
+hash check are the two cheap gates before extraction in the task-17 pipeline.

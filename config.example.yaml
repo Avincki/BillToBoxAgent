@@ -38,6 +38,11 @@ smtp:                              # transport for emailing invoices to Billtobo
 # extraction:
 #   confidence_threshold: 0.85     # below this, items are flagged for review (not auto-approved)
 
+# prefilter:                       # cheap model-free gating before any Claude call (task 11)
+#   sender_allowlist: []           # domains always accepted (e.g. [kpn.com, proximus.be]); subdomains match too
+#   sender_blocklist: []           # domains always rejected; blocklist wins over allowlist
+#   subject_keywords: [invoice, factuur, rekening, btw]   # non-allowlisted senders need one of these in the subject
+
 # accounting:
 #   fiscal_year_start_month: 1     # 1 = calendar quarters (Jan-Mar=Q1, ... Oct-Dec=Q4)
 #   quarter_date_field: invoice_date   # invoice_date | received_date

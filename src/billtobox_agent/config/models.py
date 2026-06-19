@@ -81,6 +81,20 @@ class ExtractionConfig(_StrictModel):
     confidence_threshold: Confidence = 0.85
 
 
+class PrefilterConfig(_StrictModel):
+    """Cheap, model-free gating applied before any Claude call (task 11).
+
+    Semantics (see :func:`billtobox_agent.mail.prefilter.prefilter`):
+    blocklisted senders are always rejected (blocklist wins); allowlisted
+    senders are always accepted; everything else must carry one of
+    ``subject_keywords``. Domains match themselves and their subdomains.
+    """
+
+    sender_allowlist: tuple[str, ...] = ()
+    sender_blocklist: tuple[str, ...] = ()
+    subject_keywords: tuple[str, ...] = ("invoice", "factuur", "rekening", "btw")
+
+
 class QuarterDateField(StrEnum):
     INVOICE_DATE = "invoice_date"
     RECEIVED_DATE = "received_date"
@@ -140,6 +154,7 @@ class AppConfig(_StrictModel):
     # Optional: sensible defaults (decisions.md).
     drive: DriveConfig = Field(default_factory=DriveConfig)
     extraction: ExtractionConfig = Field(default_factory=ExtractionConfig)
+    prefilter: PrefilterConfig = Field(default_factory=PrefilterConfig)
     accounting: AccountingConfig = Field(default_factory=AccountingConfig)
     sources: SourcesConfig = Field(default_factory=SourcesConfig)
     storage: StorageConfig = Field(default_factory=StorageConfig)

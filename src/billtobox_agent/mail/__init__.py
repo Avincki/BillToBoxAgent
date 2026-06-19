@@ -19,11 +19,13 @@ from billtobox_agent.mail.ms_auth import (
     run_device_flow,
 )
 from billtobox_agent.mail.outlook import OutlookConnector
+from billtobox_agent.mail.prefilter import PDF_MAGIC, prefilter
 
 __all__ = [
     "GMAIL_QUERY",
     "GOOGLE_SCOPES",
     "MS_SCOPES",
+    "PDF_MAGIC",
     "DoccleConnector",
     "FetchedPdf",
     "GmailConnector",
@@ -38,6 +40,7 @@ __all__ = [
     "acquire_token",
     "fetch_new_pdfs",
     "load_credentials",
+    "prefilter",
     "run_consent_flow",
     "run_device_flow",
     "save_credentials",
