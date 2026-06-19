@@ -44,7 +44,9 @@ class MicrosoftConfig(_StrictModel):
     """Outlook / Microsoft 365 mail (Mail.Read) via MSAL."""
 
     client_id: str = Field(min_length=1)
-    client_secret: SecretStr
+    # Optional: the headless device-code (public client) flow needs no secret;
+    # kept for a possible future confidential-client setup.
+    client_secret: SecretStr | None = None
     # 'common' works for both personal (outlook.com) and work/school accounts.
     tenant_id: str = "common"
     token_path: Path = Path("data/ms_token.json")

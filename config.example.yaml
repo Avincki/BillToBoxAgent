@@ -14,7 +14,7 @@ google:                            # Gmail (read-only) + Drive (drive.file); one
 
 microsoft:                         # Outlook / Microsoft 365 (Mail.Read) via MSAL
   client_id: REPLACE_ME
-  client_secret: REPLACE_ME
+  # client_secret: REPLACE_ME      # optional — the device-code (public client) flow needs none
   tenant_id: common                # 'common' works for personal + work/school accounts
   token_path: data/ms_token.json
 

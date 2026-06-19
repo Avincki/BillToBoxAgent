@@ -10,17 +10,33 @@ from billtobox_agent.mail.google_auth import (
     run_consent_flow,
     save_credentials,
 )
+from billtobox_agent.mail.graph import GraphClient, GraphError, GraphHttp
+from billtobox_agent.mail.ms_auth import (
+    MS_SCOPES,
+    MicrosoftAuthError,
+    acquire_token,
+    run_device_flow,
+)
+from billtobox_agent.mail.outlook import OutlookConnector
 
 __all__ = [
     "GMAIL_QUERY",
     "GOOGLE_SCOPES",
+    "MS_SCOPES",
     "FetchedPdf",
     "GmailConnector",
     "GoogleAuthError",
+    "GraphClient",
+    "GraphError",
+    "GraphHttp",
     "MailConnector",
     "MailMessageRef",
+    "MicrosoftAuthError",
+    "OutlookConnector",
+    "acquire_token",
     "fetch_new_pdfs",
     "load_credentials",
     "run_consent_flow",
+    "run_device_flow",
     "save_credentials",
 ]

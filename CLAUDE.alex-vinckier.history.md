@@ -173,4 +173,21 @@ google-auth (`follow_imports=skip`, since google-auth ships partial types).
 source_message_id (an already-invoiced message is skipped). Toolchain green (ruff/black/mypy
 26 files/pytest 75).
 
-Next up: add the CI workflow; then task 9 (Outlook/Graph fetch — same shape, via MSAL).
+## 2026-06-19 — WORKPLAN task 9: Outlook / Microsoft Graph fetch (read-only)
+
+Built the Outlook connector matching the Gmail shape: `mail/ms_auth.py` (MSAL public-client
+device-code flow, Mail.Read, `SerializableTokenCache` at microsoft.token_path, silent
+acquire/refresh, `MicrosoftAuthError`); `mail/graph.py` (`GraphClient` over requests + Bearer
+token, `GraphHttp` Protocol for injection); `mail/outlook.py` (`OutlookConnector`: `$filter`
+hasAttachments + receivedDateTime, pagination via `@odata.nextLink`, fileAttachment PDF
+download with base64 `contentBytes`; injectable client + `from_config`). Reuses the shared
+`fetch_new_pdfs` (watermark + source_message_id dedup). One-time consent script
+`scripts/auth_ms.py`. Made `microsoft.client_secret` optional (public-client device-code
+needs none).
+
+5 integration tests vs a fake Graph client: `$filter` built (with/without receivedDateTime),
+refs parsed, non-PDF attachment skipped + bytes decoded, watermark advances, dedup by
+source_message_id. Output type-matches Gmail (`FetchedPdf`). Toolchain green (ruff/black/mypy
+29 files/pytest 80).
+
+Next up: add the CI workflow; then task 10 (Doccle stub).
