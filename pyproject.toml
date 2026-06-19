@@ -97,14 +97,17 @@ warn_unused_ignores = true
 plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
-# Google API client and MSAL ship incomplete or no type stubs; treat them as
-# untyped rather than fighting the stubs.
+# Google API client, google-auth, and MSAL ship incomplete or partial type info;
+# treat them as opaque (skip-follow) rather than fighting the stubs.
 module = [
     "googleapiclient.*",
+    "google.auth.*",
+    "google.oauth2.*",
     "google_auth_oauthlib.*",
     "msal.*",
 ]
 ignore_missing_imports = true
+follow_imports = "skip"
 
 [tool.pytest.ini_options]
 minversion = "7.4"

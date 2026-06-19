@@ -46,6 +46,14 @@ class InvoicesRepository:
     async def exists_content_hash(self, content_hash: str) -> bool:
         return await self.get_by_content_hash(content_hash) is not None
 
+    async def exists_source_message_id(self, source: str, source_message_id: str) -> bool:
+        result = await self._session.execute(
+            select(Invoice.id)
+            .where(Invoice.source == source, Invoice.source_message_id == source_message_id)
+            .limit(1)
+        )
+        return result.first() is not None
+
     async def list(self) -> Sequence[Invoice]:
         result = await self._session.execute(select(Invoice).order_by(Invoice.created_at.desc()))
         return result.scalars().all()

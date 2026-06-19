@@ -154,4 +154,23 @@ Toolchain green (ruff/black/mypy 22 files/pytest 70).
 The `configure_logging` call gets wired into the entry points when those are built — the
 worker (tasks 17/21) and the dashboard `main.py` (task 18).
 
-Next up: add the CI workflow; then task 8 (Gmail read-only fetch + OAuth consent bootstrap).
+## 2026-06-19 — WORKPLAN task 8: Gmail read-only fetch + OAuth bootstrap
+
+Built the Gmail connector and the shared mail layer: `mail/base.py` (`MailMessageRef`,
+`FetchedPdf`, `MailConnector` Protocol — the shape every source returns); `mail/google_auth.py`
+(least-privilege scopes gmail.readonly + drive.file, `load_credentials` with auto-refresh,
+`run_consent_flow`, `save_credentials`, `GoogleAuthError`); `mail/gmail.py` (`GmailConnector`:
+query `has:attachment filename:pdf (invoice OR factuur OR rekening OR BTW)`, pagination,
+metadata refs, recursive `payload.parts` walk + base64url attachment download; injectable
+service + `from_config` factory); `mail/fetch.py` (`fetch_new_pdfs`: reads the source_status
+watermark, adds Gmail `after:` epoch, dedups by source_message_id via new
+`InvoicesRepository.exists_source_message_id`, downloads survivors in a thread, advances the
+watermark). One-time consent script `scripts/auth_google.py`. Extended the mypy override for
+google-auth (`follow_imports=skip`, since google-auth ships partial types).
+
+5 integration tests against a hand-rolled fake Gmail service: query built (with/without
+`after:`), refs parsed + sorted, attachment bytes decoded, watermark advances, and dedup by
+source_message_id (an already-invoiced message is skipped). Toolchain green (ruff/black/mypy
+26 files/pytest 75).
+
+Next up: add the CI workflow; then task 9 (Outlook/Graph fetch — same shape, via MSAL).
