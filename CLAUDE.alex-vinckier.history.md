@@ -111,5 +111,22 @@ plus example-file validity.
 
 Toolchain green under the 3.12 venv: ruff ✓, black ✓, mypy ✓ (13 files), pytest ✓ (20).
 
-Next up: add the CI workflow (web UI or workflow-scoped token); then task 5 (SQLite schema
-+ WAL + Alembic + the `agent_events` table).
+## 2026-06-19 — WORKPLAN task 5: SQLite schema + WAL + Alembic
+
+Built the data layer (CONVENTIONS.md §8): `data/models.py` (SQLAlchemy 2.0 `Mapped`/
+`mapped_column`, tz-aware UTC timestamps) with the `invoices` (unique `content_hash`),
+`runs`, `source_status` (watermark + health), and `agent_events` tables; `data/database.py`
+(engine / session factory / `init_schema`, plus a `connect` listener enabling **WAL** +
+`foreign_keys=ON` per connection — the two-process need from decisions.md §13-D);
+`data/repositories.py` + `data/unit_of_work.py`; and `utils/redact.py` + `utils/hashing.py`
+(`redact()` scrubs secrets and replaces PDF bytes with hash+length at the `agent_events`
+write boundary; `sha256_hex()` for content hashing). Alembic set up (`alembic.ini`, async
+`env.py` resolving `BTB_DB_URL`/`BTB_SQLITE_PATH`, `0001_initial` for all four tables).
+
+10 new tests: schema tables/columns, WAL + FK pragmas active (file-backed DB), `content_hash`
+UNIQUE rejects a duplicate, a UnitOfWork round-trip proving agent-event redaction, redact unit
+tests, and an Alembic upgrade→downgrade integration test. Toolchain green: ruff ✓, black ✓,
+mypy ✓ (19 files), pytest ✓ (30). One harmless alembic `path_separator` DeprecationWarning
+(kept alembic.ini matching HEC).
+
+Next up: add the CI workflow; then task 6 (`period_for` accounting-quarter logic).
