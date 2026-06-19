@@ -64,4 +64,52 @@ worker/dashboard + systemd units + Caddy exposure, i.e. tasks 18/22/23); renumbe
 on-Pi smoke-run → 25 (now follows the guide and feeds fixes back) and the ops README →
 26 (slimmed to defer install steps to the guide). Total ≈20d.
 
-Next up: task 3 (scaffold the project structure + `git init`).
+## 2026-06-19 — WORKPLAN task 3: Scaffold project structure + git init
+
+Scaffolded per CONVENTIONS.md: `pyproject.toml` (hatchling, `billtobox-agent`,
+runtime + `[dev]` deps, ruff/black/mypy/pytest/coverage config mirroring HEC),
+`.gitignore` (+ OAuth token files, PDF cache, TLS material), `.pre-commit-config.yaml`,
+`.github/workflows/ci.yml` (matrix 3.11/3.12), minimal `README.md`, the
+`src/billtobox_agent/` package with domain sub-packages (config, data, monitoring,
+mail, extraction, drive, billtobox, agent, web, utils — each a documented
+`__init__.py`), `tests/{unit,integration,fixtures}` with a smoke test, and
+`scripts/`+`docs/` placeholders.
+
+`git init -b main`; added remote `origin` → https://github.com/Avincki/BillToBoxAgent.git;
+committed and **pushed 30 files** to `origin/main`. The CI workflow
+(`.github/workflows/ci.yml`) was held back: the owner's `gh` OAuth token has
+`gist/read:org/repo` but not `workflow`, and `gh auth refresh -s workflow` did not grant
+it (interactive approval did not complete / OAuth-app scope restricted). `ci.yml` stays on
+disk (untracked) — add it via GitHub's web "Add file" editor (web commits bypass the
+token-scope rule) or commit it once a `workflow`-scoped token is available.
+
+Verification: created `.venv` with **Python 3.12.1** (the machine already had 3.12 at
+`...\Programs\Python\Python312`; the default `python` on the Git Bash PATH is an unrelated
+3.8 — a PATH-order quirk, not a missing interpreter). Because the project lives in Dropbox,
+the venv install first hit Dropbox sync file-locks (WinError 32) and a half-upgraded pip —
+fixed by marking `.venv` with the `com.dropbox.ignored` NTFS stream (a venv must never be
+synced), then repairing pip via `ensurepip` and `pip install -e ".[dev]"`. The **full
+toolchain now passes**: ruff ✓, ruff-format ✓, black ✓, mypy ✓ (11 files), pytest ✓ (2
+passed). Task 3 acceptance met. (mypy notes the google/msal override sections are unused
+for now — they activate once tasks 8/9/14 import those libraries.)
+
+Also wrote `docs/python-setup.md` (local venv setup, activation per shell/IDE, the
+Dropbox-ignore caveat, and troubleshooting) and linked it from the README.
+
+## 2026-06-19 — WORKPLAN task 4: Configuration + secrets (YAML + Pydantic)
+
+Implemented the config layer (CONVENTIONS.md §6): `config/models.py` (frozen,
+extra-forbid `AppConfig` tree; `SecretStr` for API keys/secrets; `EmailStr` for the
+Billtobox addresses; defaults per decisions.md — confidence 0.85, calendar quarters,
+`127.0.0.1:9003`, polling `[gmail, outlook]`); `config/loader.py`
+(`load_config` / `load_config_from_env` / `resolve_config_path`, `ConfigError` with
+formatted messages, `$BTB_CONFIG` path); `config/__init__.py` re-exports; and
+`config.example.yaml` (REPLACE_ME placeholders, no `.env`). 18 tests: defaults, secret
+redaction, validation (missing section, extra key, out-of-range, bad email,
+empty/unknown source, frozen) and loader error paths (missing/empty/bad-YAML/non-mapping)
+plus example-file validity.
+
+Toolchain green under the 3.12 venv: ruff ✓, black ✓, mypy ✓ (13 files), pytest ✓ (20).
+
+Next up: add the CI workflow (web UI or workflow-scoped token); then task 5 (SQLite schema
++ WAL + Alembic + the `agent_events` table).

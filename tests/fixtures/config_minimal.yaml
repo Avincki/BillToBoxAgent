@@ -1,0 +1,17 @@
+# Minimal valid config for tests — only the required sections; everything else
+# falls back to defaults.
+anthropic:
+  api_key: test-anthropic-key
+google:
+  client_id: test-google-client-id
+  client_secret: test-google-secret
+microsoft:
+  client_id: test-ms-client-id
+  client_secret: test-ms-secret
+billtobox:
+  mailbox_address: upload@mailbox.billtobox.com
+  sender_address: invoices@example.com
+smtp:
+  host: smtp.example.com
+  username: invoices@example.com
+  password: test-smtp-password

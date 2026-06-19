@@ -1,0 +1,59 @@
+# BillToBoxAgent — example configuration.
+# Copy to config.yaml and fill in. config.yaml is gitignored — never commit secrets.
+# The worker and dashboard read the path from $BTB_CONFIG (default: config.yaml).
+
+# --- required: external service credentials -----------------------------------
+
+anthropic:
+  api_key: REPLACE_ME              # Anthropic API key (sk-ant-...)
+
+google:                            # Gmail (read-only) + Drive (drive.file); one OAuth client, consent once
+  client_id: REPLACE_ME
+  client_secret: REPLACE_ME
+  token_path: data/google_token.json   # refresh token written here (gitignored)
+
+microsoft:                         # Outlook / Microsoft 365 (Mail.Read) via MSAL
+  client_id: REPLACE_ME
+  client_secret: REPLACE_ME
+  tenant_id: common                # 'common' works for personal + work/school accounts
+  token_path: data/ms_token.json
+
+billtobox:                         # email-ingest target (decisions.md)
+  mailbox_address: upload-REPLACE_ME@mailbox.billtobox.com   # your Billtobox upload mailbox
+  sender_address: invoices@your-domain.com                   # an address Billtobox accepts for it
+
+smtp:                              # transport for emailing invoices to Billtobox (use an app password)
+  host: smtp.gmail.com
+  port: 587
+  username: invoices@your-domain.com
+  password: REPLACE_ME             # app password (NOT your normal login password)
+  use_tls: true
+
+# --- optional: behaviour (defaults shown; uncomment to override) --------------
+
+# drive:
+#   root_folder_id:                # empty => agent creates the root folder on first run and records its id
+#   root_folder_name: Invoices
+
+# extraction:
+#   confidence_threshold: 0.85     # below this, items are flagged for review (not auto-approved)
+
+# accounting:
+#   fiscal_year_start_month: 1     # 1 = calendar quarters (Jan-Mar=Q1, ... Oct-Dec=Q4)
+#   quarter_date_field: invoice_date   # invoice_date | received_date
+#   fy_label_prefix: ""            # "" => 2026 ; "FY" => FY2026
+
+# sources:
+#   polling: [gmail, outlook]      # doccle is stubbed until its API is provided
+
+# storage:
+#   sqlite_path: data/billtobox.db
+
+# logging:
+#   log_dir: logs
+#   level: INFO                    # DEBUG | INFO | WARNING | ERROR | CRITICAL
+#   retention_days: 30
+
+# web:
+#   host: 127.0.0.1                # localhost only; Caddy fronts TLS on public :8003
+#   port: 9003
