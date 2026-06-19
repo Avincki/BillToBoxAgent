@@ -1,0 +1,128 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "billtobox-agent"
+version = "0.1.0"
+description = "Supervised invoice-processing agent: collects invoices from Gmail/Outlook, extracts fields with Claude, files PDFs to Google Drive by accounting quarter, and (with human approval) forwards them to Billtobox."
+requires-python = ">=3.11"
+authors = [{ name = "Alex Vinckier", email = "alex.vinckier@kintsunai.com" }]
+license = { text = "MIT" }
+dependencies = [
+    "fastapi>=0.104,<1.0",
+    "uvicorn[standard]>=0.24,<1.0",
+    "pydantic[email]>=2.5,<3.0",
+    "sqlalchemy>=2.0.23,<3.0",
+    "aiosqlite>=0.19,<1.0",
+    "alembic>=1.13,<2.0",
+    "jinja2>=3.1,<4.0",
+    "python-multipart>=0.0.6,<1.0",
+    "pyyaml>=6.0,<7.0",
+    "structlog>=23.2,<25.0",
+    "tenacity>=8.2,<9.0",
+    # Anthropic SDK + exact model id are confirmed in task 13 against the
+    # claude-api reference; this range is a scaffold placeholder.
+    "anthropic>=0.40,<1.0",
+    "google-api-python-client>=2.100,<3.0",
+    "google-auth>=2.23,<3.0",
+    "google-auth-oauthlib>=1.1,<2.0",
+    "google-auth-httplib2>=0.2,<1.0",
+    "msal>=1.26,<2.0",
+    "requests>=2.31,<3.0",
+    "tzdata>=2024.1; sys_platform == 'win32'",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4,<9.0",
+    "pytest-asyncio>=0.21,<1.0",
+    "pytest-mock>=3.12,<4.0",
+    "pytest-cov>=4.1,<6.0",
+    "httpx>=0.25,<1.0",
+    "hypothesis>=6.92,<7.0",
+    "black>=23.11,<25.0",
+    "ruff>=0.1.6,<1.0",
+    "mypy>=1.7,<2.0",
+    "pre-commit>=3.5,<5.0",
+    "types-pyyaml",
+    "types-requests",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/billtobox_agent"]
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E", "W",   # pycodestyle
+    "F",        # pyflakes
+    "I",        # isort
+    "B",        # flake8-bugbear
+    "UP",       # pyupgrade
+    "SIM",      # flake8-simplify
+    "C4",       # flake8-comprehensions
+    "RET",      # flake8-return
+    "ASYNC",    # flake8-async
+    "PL",       # pylint
+    "RUF",      # ruff-specific
+]
+ignore = [
+    "PLR0913",  # too many arguments
+    "PLR2004",  # magic value comparison
+    "SIM117",   # combine with statements — hurts readability for server+client fixtures
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["PLR", "PLC0415", "S101"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+# Google API client and MSAL ship incomplete or no type stubs; treat them as
+# untyped rather than fighting the stubs.
+module = [
+    "googleapiclient.*",
+    "google_auth_oauthlib.*",
+    "msal.*",
+]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+minversion = "7.4"
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "-ra",
+]
+
+[tool.coverage.run]
+source = ["src/billtobox_agent"]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+]

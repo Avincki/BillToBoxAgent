@@ -1,0 +1,86 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Distribution / packaging
+.Python
+build/
+dist/
+*.egg-info/
+*.egg
+wheels/
+pip-wheel-metadata/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Testing / coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+
+# Type checkers
+.mypy_cache/
+.pyre/
+.pytype/
+.ruff_cache/
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project-local — databases, config with secrets, logs
+*.db
+*.sqlite
+*.sqlite3
+config.yaml
+config.local.yaml
+*.bak
+.env
+.env.*
+!.env.example
+logs/
+*.log
+*.log.*
+
+# OAuth refresh-token files (minted once interactively, copied to the Pi) —
+# NEVER commit these. See docs/raspberry-pi-setup.md (task 24).
+data/google_token.json
+data/ms_token.json
+tokens/
+*.token.json
+
+# Short-lived PDF processing cache (Drive is the system of record)
+pdf_cache/
+.cache/
+
+# TLS certs/keys — per-host Tailscale HTTPS material, lives in /etc/caddy/certs
+# on the Pi (see CONVENTIONS.md §11). NEVER commit the private key.
+*.crt
+*.key
+*.pem
+
+# Pre-commit
+.pre-commit-cache/
+
+# Claude Code per-user state
+.claude/
+
+# Dropbox conflict copies
+*conflicted copy*
