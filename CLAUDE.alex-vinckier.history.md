@@ -705,3 +705,34 @@ Pi-side, in task 25. Toolchain green under the 3.12 venv: ruff ✓, ruff-format 
 Next up: **task 24** — the start-to-finish `docs/raspberry-pi-setup.md` (flash → user → code → venv →
 one-time OAuth consent → config → alembic → smoke-test → install units → Caddy/Tailscale → ops),
 then 25 (on-Pi smoke-run, needs hardware) and 26 (ops README).
+
+## 2026-06-20 — WORKPLAN task 24: Raspberry Pi deployment guide
+
+Wrote `docs/raspberry-pi-setup.md`, modelled on HEC's guide (extracted its structure + reusable
+patterns via an Explore subagent). Headless — **omitted the kiosk/display sections entirely**.
+Framed for the real deployment: BillToBox is a **co-located app on the existing HEC Pi** (the
+`homecenter` Tailscale node, shared cert + Caddy), so §2/§3/§6 are marked "skip if HEC is already
+installed" while staying complete enough to deploy from a blank SD card.
+
+Sections, in order: a values table (user/paths/units/ports all matching CONVENTIONS/decisions);
+§1 prerequisites (incl. the browser machine for OAuth); §2 flash Pi OS **Lite** headless; §3 apt
+update + packages; §4 install — 4.0 `useradd --system --home-dir /opt/billtobox`, 4.1 clone/rsync
+(excludes `.venv`/`__pycache__`/`*.db`), 4.2 venv + `pip install -e .` (runtime only), **4.3
+one-time OAuth consent on a browser machine** (`scripts/auth_google.py` / `auth_ms.py` → copy
+`data/*_token.json` to the Pi; tokens never minted headless), 4.4 config.yaml (chmod 600), 4.5
+`alembic upgrade head` (+ the `BTB_SQLITE_PATH` note), 4.6 `worker --dry-run`/real + dashboard curl;
+§5 systemd via `install-units.sh` (verbatim HEC **path-warning** + `systemd-analyze verify` +
+`enable --now` the timer + dashboard + the OnCalendar drop-in); §6 the shared Caddy + `tailscale
+cert` (append `deploy/caddy/billtobox.Caddyfile`, validate, reload; fresh-Pi variant too); §7
+day-to-day (force a run, watch `/logs`/`/activity`, the one-shot + step-by-step **update procedure**
+mirroring HEC); §8 an 11-row troubleshooting table (alembic, 226/NAMESPACE, expired OAuth tokens,
+SMTP app-password, WAL lock contention between the two processes, port-in-use, cert/Caddy, …).
+
+Every path/user/unit/port/env-var cross-checked against the task-22 units, the task-23 Caddy block,
+`config.example.yaml`, and the consent scripts. Updated the README pointer (dropped the "(task 24)"
+placeholder). No code changed, so the toolchain is unaffected (pytest still 178).
+
+Next up: **task 25** (on-Pi end-to-end smoke-run) genuinely needs the Raspberry Pi hardware + real
+OAuth/Anthropic/Billtobox/SMTP credentials, so it can't be done from here — it's the owner's on-box
+step that this guide drives. **task 26** (ops/troubleshooting README) is the last doc I can write
+fully.

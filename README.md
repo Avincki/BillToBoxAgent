@@ -14,7 +14,7 @@ quarter, and — with human approval — forwards them to **Billtobox** by email
 - [`decisions.md`](decisions.md) — confirmed project decisions and configuration choices.
 - [`WORKPLAN.md`](WORKPLAN.md) — the build plan (25+ tasks across 6 phases).
 - [`docs/python-setup.md`](docs/python-setup.md) — local Python / venv setup on Windows (activation, deps, troubleshooting).
-- `docs/raspberry-pi-setup.md` — start-to-finish Pi deployment guide *(task 24)*.
+- [`docs/raspberry-pi-setup.md`](docs/raspberry-pi-setup.md) — start-to-finish Pi deployment guide.
 
 ## Quick start (development)
 
