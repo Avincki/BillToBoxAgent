@@ -1,0 +1,17 @@
+# BillToBox dashboard — tailnet-only HTTPS on :8003 (no tailscale serve/funnel).
+#
+# The dashboard binds 127.0.0.1:9003 (config web.host/web.port) and never a public
+# interface; Caddy terminates TLS with the shared `tailscale cert` material and
+# reverse-proxies to it. This joins HEC's Caddy multi-app scheme (CONVENTIONS.md
+# §11; decisions.md C2/#12): public :8000->:9000 HEC, :8003->:9003 BillToBox.
+#
+# Install: append this block to the shared /etc/caddy/Caddyfile, or add
+#   import /opt/billtobox/BillToBoxAgent/deploy/caddy/billtobox.Caddyfile
+# to it, then `sudo systemctl reload caddy`.
+#
+# Replace <tailnet> with your tailnet name (e.g. tailnet-abc.ts.net). The node
+# keeps HEC's hostname `homecenter`; apps are told apart by port.
+homecenter.<tailnet>.ts.net:8003 {
+	tls /etc/caddy/certs/homecenter.<tailnet>.ts.net.crt /etc/caddy/certs/homecenter.<tailnet>.ts.net.key
+	reverse_proxy 127.0.0.1:9003
+}

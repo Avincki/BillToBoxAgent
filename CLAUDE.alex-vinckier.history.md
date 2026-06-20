@@ -679,3 +679,29 @@ the 3.12 venv: ruff ✓, ruff-format ✓, black ✓, mypy ✓ (48 files), pytest
 Next up: **task 23** (Caddy reverse proxy + `tailscale cert`, documented in README — dashboard
 `127.0.0.1:9003` behind public `:8003`), then 24 (Pi guide), 25 (on-Pi smoke-run — needs hardware +
 real creds), 26 (ops README).
+
+## 2026-06-20 — WORKPLAN task 23: networking (Caddy + tailscale cert)
+
+Documentation + config, no app code. Joined HEC's Caddy multi-app scheme (CONVENTIONS.md §11,
+decisions.md C2/#12): the dashboard binds `127.0.0.1:9003` (loopback only — already the config
+default) and Caddy fronts TLS on public **`:8003`**, reusing the node's shared `tailscale cert`. No
+`tailscale serve`/`funnel`. The Pi is the same Tailscale node as HEC (hostname `homecenter`);
+co-located apps are distinguished by port (`:8000`→HEC, `:8003`→BillToBox).
+
+- `deploy/caddy/billtobox.Caddyfile` — the exact site block
+  (`homecenter.<tailnet>.ts.net:8003 { tls …/certs/…crt …key; reverse_proxy 127.0.0.1:9003 }`),
+  appendable to / importable from the shared `/etc/caddy/Caddyfile`.
+- `README.md` — a "Remote access (Tailscale + Caddy)" section: the loopback-only model, the
+  `sudo tailscale cert homecenter.<tailnet>.ts.net` issue step (+ chown caddy), the Caddy block +
+  `caddy validate`/`reload`, a weekly root-cron renewal example, and the verify-from-another-device
+  expectation (HTTPS on :8003 returns the invoice list; plain HTTP and off-box `:9003` refused).
+
+`deploy/caddy/**` added to `.gitattributes` (LF). Extended the deploy-config regression test
+(`tests/unit/test_systemd_units.py`) with a Caddy-block check (`:8003` → `reverse_proxy
+127.0.0.1:9003`, `tls …/certs/`). The actual end-to-end check (browse from a tailnet device) is
+Pi-side, in task 25. Toolchain green under the 3.12 venv: ruff ✓, ruff-format ✓, black ✓, mypy ✓
+(48 files), pytest ✓ (178, up from 177).
+
+Next up: **task 24** — the start-to-finish `docs/raspberry-pi-setup.md` (flash → user → code → venv →
+one-time OAuth consent → config → alembic → smoke-test → install units → Caddy/Tailscale → ops),
+then 25 (on-Pi smoke-run, needs hardware) and 26 (ops README).

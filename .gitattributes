@@ -1,4 +1,4 @@
-# Shell scripts and systemd units are deployed on Linux — keep them LF so a
-# Windows checkout/commit can't introduce CRLF that breaks bash/systemd.
+# Shell scripts and deployment config (systemd units, Caddyfile) run on Linux —
+# keep them LF so a Windows checkout/commit can't introduce CRLF that breaks them.
 *.sh text eol=lf
-deploy/systemd/** text eol=lf
+deploy/** text eol=lf

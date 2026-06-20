@@ -74,3 +74,11 @@ def test_install_script_links_all_units() -> None:
         assert unit in text
     assert "ln -sf" in text
     assert "daemon-reload" in text
+
+
+def test_caddy_block_reverse_proxies_loopback_dashboard() -> None:
+    # Networking (task 23): Caddy fronts TLS on :8003 -> loopback dashboard; no funnel/serve.
+    text = (_ROOT / "deploy" / "caddy" / "billtobox.Caddyfile").read_text(encoding="utf-8")
+    assert ":8003 {" in text
+    assert "reverse_proxy 127.0.0.1:9003" in text
+    assert "tls /etc/caddy/certs/" in text

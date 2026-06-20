@@ -34,4 +34,53 @@ Full activation/troubleshooting (and the Dropbox-sync caveat) is in
 Configuration is a YAML file (`config.yaml`, gitignored) validated by Pydantic; copy
 `config.example.yaml` *(task 4)* and fill it in. The config path is read from `BTB_CONFIG`.
 
+## Remote access (Tailscale + Caddy)
+
+The dashboard is reached over the tailnet at **`https://homecenter.<tailnet>.ts.net:8003/`**.
+It binds **`127.0.0.1:9003`** only (loopback — `web.host`/`web.port` in config) and **never** a
+public interface; **Caddy** terminates TLS on `:8003` and reverse-proxies to it, reusing the
+node's shared `tailscale cert`. We do **not** use `tailscale serve` or `tailscale funnel`
+(CONVENTIONS.md §11; decisions.md C2/#12). The Pi is the same Tailscale node as HomeEnergyCenter
+(hostname `homecenter`); co-located apps are told apart by port (`:8000`→HEC, `:8003`→BillToBox).
+
+**Prerequisites** (one-time, mostly already done for HEC): Tailscale up on the Pi; **MagicDNS +
+HTTPS certificates enabled** in the Tailscale admin console; Caddy installed with a shared
+`/etc/caddy/certs/` directory (root-owned, readable by the `caddy` user).
+
+**1. Issue / refresh the cert** (writes `<host>.crt` + `<host>.key`):
+
+```bash
+cd /etc/caddy/certs
+sudo tailscale cert homecenter.<tailnet>.ts.net      # creates homecenter.<tailnet>.ts.net.{crt,key}
+sudo chown caddy:caddy homecenter.<tailnet>.ts.net.*
+```
+
+**2. Add the Caddy block.** Append [`deploy/caddy/billtobox.Caddyfile`](deploy/caddy/billtobox.Caddyfile)
+to the shared `/etc/caddy/Caddyfile` (or `import` it), replacing `<tailnet>` with your tailnet name:
+
+```caddyfile
+homecenter.<tailnet>.ts.net:8003 {
+	tls /etc/caddy/certs/homecenter.<tailnet>.ts.net.crt /etc/caddy/certs/homecenter.<tailnet>.ts.net.key
+	reverse_proxy 127.0.0.1:9003
+}
+```
+
+```bash
+sudo caddy validate --config /etc/caddy/Caddyfile
+sudo systemctl reload caddy
+```
+
+**3. Renewal.** Tailscale certs are short-lived; refresh them on a schedule. HEC already runs a
+weekly **root cron** that re-issues the shared cert and reloads Caddy — BillToBox reuses the same
+cert, so no extra job is needed. If setting it up fresh:
+
+```cron
+# /etc/cron.d/tailscale-cert  (weekly, as root)
+0 4 * * 0  root  cd /etc/caddy/certs && tailscale cert homecenter.<tailnet>.ts.net && chown caddy:caddy homecenter.<tailnet>.ts.net.* && systemctl reload caddy
+```
+
+**Verify** from another tailnet device: `https://homecenter.<tailnet>.ts.net:8003/` returns the
+invoice list over the real cert. Plain HTTP to `:8003` and any attempt to reach `127.0.0.1:9003`
+from off-box are both refused (the dashboard listens only on loopback; Caddy serves HTTPS only).
+
 This README is fleshed out into the full operations reference in task 26.
