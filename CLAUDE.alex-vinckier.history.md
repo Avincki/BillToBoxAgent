@@ -419,3 +419,51 @@ flag_for_review/queue 16). Next up: **task 17** — the linear `run_once()` that
 prefilter → dedup → extract → confidence-gate → (ensure_quarter_folder + store_pdf_to_drive |
 flag_for_review) → advance watermark → close the run, with a `--dry-run` mode and full
 `agent_events` per step.
+
+## 2026-06-20 — WORKPLAN task 17: the linear run_once pipeline + worker entry point
+
+Wired all of tasks 8–16 into one straight-line pass. Added `pipeline/run.py`:
+
+- `WorkerContext` (frozen dataclass: config, session_factory, `mail_connectors` map, drive,
+  anthropic_client, dry_run) — every dependency injected so tests pass fakes; the worker builds
+  the real ones. `RunSummary` (run_id + the four counts + errors + dry_run).
+- `run_once(ctx)`: opens a `runs` row → per source in `config.sources.polling`, look up the
+  connector → `fetch_new_pdfs` (advances the watermark) → per PDF `_process_pdf`: prefilter →
+  content-hash dedup → create the `invoices` row → `extract_invoice` → `record_extraction`
+  (fields + `period_for` quarter) → confidence gate: `auto_approve and invoice_date is not None`
+  ⇒ `ensure_quarter_folder` + `store_pdf_to_drive`; else `flag_for_review` with a specific reason
+  (not-an-invoice / below-threshold / missing-date) → close the run with counts + error summary.
+- Resilience: per-source and per-item `try/except` so one bad source/PDF can't sink the run; a
+  fetch failure records `source_status` error; extraction or Drive failure flags the item for
+  review instead of losing it. Commits are **per item** (so a stored invoice's `content_hash`
+  persists immediately and blocks a re-upload after a crash).
+- `--dry-run`: runs the full read+extract pass, logs intended Drive actions, and **never
+  commits** (skips the Drive calls; the UnitOfWork rolls back on exit) → no external writes.
+
+Added `data/repositories.py::InvoicesRepository.record_extraction(...)` (persists the extracted
+fields + computed `fy_label`/`quarter`). Added the worker entry point `worker.py`
+(`python -m billtobox_agent.worker [--dry-run]`): loads config, **wires `configure_logging`**
+(the task-7 hookup), builds the real connectors/clients from config (skipping any that fail to
+build, e.g. Doccle), runs one `run_once`, disposes the engine, exits non-zero if there were
+errors.
+
+Design notes: the watermark is advanced inside `fetch_new_pdfs` (task 8), so task 17's "advance
+watermark" is that, not a separate step. Full crash-mid-run re-entrancy (watermark rollback on
+partial batches) is deliberately left to **task 21** (the tool-loop) — task 17 guarantees only
+that a *re-run after success* reprocesses nothing, which holds via watermark + `source_message_id`
++ `content_hash`.
+
+A real end-to-end test (`tests/integration/test_pipeline.py`, 4 tests) drives the whole pipeline
+with a fake mail connector, a combined fake Drive service (folders **and** media file uploads in
+one resource), and a fake Anthropic client returning canned JSON per PDF. Five messages exercise
+every branch: approved→stored, low-confidence→flagged, not-an-invoice→flagged,
+prefiltered-out (no row), and a different message with identical bytes→content-hash dup (no row).
+Asserts the counts, each invoice's status/fields/Drive location, the `runs` row, the audit-trail
+tool set, the exact Drive folder-tree + upload calls, and the advanced watermark. Plus: re-run
+reprocesses nothing (watermark holds); content-hash holds even when the watermark is reset; and
+dry-run leaves the DB empty with zero Drive calls. Toolchain green under the 3.12 venv: ruff ✓,
+ruff-format ✓, black ✓, mypy ✓ (40 files), pytest ✓ (143, up from 139). **Phases 1–2 are done.**
+
+Next up: **task 18** — the FastAPI + Jinja2 read-only dashboard (invoice list, exceptions queue,
+run history, the `/logs` SSE stream + `/debug`, and the `agent_events` activity timeline /
+per-invoice audit trail), bound to `127.0.0.1:9003`. First Phase-3 task.

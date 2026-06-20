@@ -8,7 +8,7 @@ which redacts inputs/outputs at the boundary.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Any
 
 from sqlalchemy import select
@@ -64,6 +64,32 @@ class InvoicesRepository:
         if invoice is None:
             raise ValueError(f"invoice {invoice_id} not found")
         invoice.status = status.value
+        await self._session.flush()
+        return invoice
+
+    async def record_extraction(
+        self,
+        invoice_id: int,
+        *,
+        vendor: str | None,
+        invoice_date: date | None,
+        amount: float | None,
+        currency: str | None,
+        confidence: float,
+        fy_label: str | None,
+        quarter: str | None,
+    ) -> Invoice:
+        """Persist the Claude-extracted fields + computed accounting period on the row."""
+        invoice = await self.get(invoice_id)
+        if invoice is None:
+            raise ValueError(f"invoice {invoice_id} not found")
+        invoice.vendor = vendor
+        invoice.invoice_date = invoice_date
+        invoice.amount = amount
+        invoice.currency = currency
+        invoice.confidence = confidence
+        invoice.fy_label = fy_label
+        invoice.quarter = quarter
         await self._session.flush()
         return invoice
 
