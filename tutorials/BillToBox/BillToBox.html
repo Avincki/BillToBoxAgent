@@ -1,0 +1,318 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BillToBox Agent — Developer Tutorial</title>
+<style>
+:root{
+  --bg:#0f1115;--sidebar:#151821;--sidebar-hover:#1e2230;--accent:#4f9cf9;
+  --accent2:#7ee0a3;--text:#d7dce5;--muted:#8a93a6;--code-bg:#1a1d27;
+  --border:#262b38;--warn:#f7c948;--danger:#f76e6e;--card:#171a23;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  background:var(--bg);color:var(--text);line-height:1.65;font-size:16px;
+}
+.layout{display:flex;min-height:100vh}
+/* Sidebar */
+.sidebar{
+  width:280px;background:var(--sidebar);position:fixed;top:0;left:0;bottom:0;
+  overflow-y:auto;padding:24px 0;border-right:1px solid var(--border);
+}
+.sidebar h1{
+  font-size:18px;padding:0 24px 16px;color:#fff;letter-spacing:.5px;
+  border-bottom:1px solid var(--border);margin-bottom:12px;
+}
+.sidebar h1 span{color:var(--accent)}
+.sidebar nav a{
+  display:block;padding:9px 24px;color:var(--muted);text-decoration:none;
+  font-size:14px;border-left:3px solid transparent;transition:.15s;
+}
+.sidebar nav a:hover{background:var(--sidebar-hover);color:var(--text);border-left-color:var(--accent)}
+.sidebar .tag{font-size:11px;color:var(--accent2);padding:14px 24px 4px;text-transform:uppercase;letter-spacing:1px;font-weight:600}
+/* Main */
+.main{margin-left:280px;padding:48px 56px;max-width:980px;width:100%}
+header.page-header{
+  background:linear-gradient(120deg,#1c2433,#141821);border:1px solid var(--border);
+  border-radius:14px;padding:40px 44px;margin-bottom:40px;
+}
+header.page-header h1{font-size:34px;color:#fff;margin-bottom:10px;letter-spacing:.5px}
+header.page-header p{color:var(--muted);font-size:17px;max-width:680px}
+header.page-header .badge{
+  display:inline-block;background:rgba(79,156,249,.15);color:var(--accent);
+  padding:4px 12px;border-radius:20px;font-size:12px;margin-top:16px;margin-right:8px;
+  border:1px solid rgba(79,156,249,.3);
+}
+section{margin-bottom:52px;scroll-margin-top:24px}
+section h2{
+  font-size:25px;color:#fff;margin-bottom:18px;padding-bottom:10px;
+  border-bottom:2px solid var(--border);display:flex;align-items:center;gap:10px;
+}
+section h2 .num{
+  background:var(--accent);color:#06101f;width:30px;height:30px;border-radius:8px;
+  display:inline-flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;
+}
+section h3{font-size:19px;color:var(--accent2);margin:26px 0 12px}
+p{margin-bottom:14px}
+ul,ol{margin:0 0 16px 24px}
+li{margin-bottom:7px}
+a{color:var(--accent)}
+code{
+  background:var(--code-bg);padding:2px 7px;border-radius:5px;font-size:13.5px;
+  font-family:"SF Mono",Consolas,Monaco,monospace;color:#e6b450;border:1px solid var(--border);
+}
+pre{
+  background:var(--code-bg);border:1px solid var(--border);border-radius:10px;
+  padding:18px 20px;overflow-x:auto;margin:16px 0;font-size:13.5px;line-height:1.55;
+}
+pre code{background:none;border:none;padding:0;color:#cdd3de}
+.kw{color:#c678dd}.str{color:#98c379}.com{color:#5c6370;font-style:italic}
+.fn{color:#61afef}.num2{color:#d19a66}
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px;margin:16px 0}
+.grid .card{margin:0}
+.card h4{color:var(--accent);font-size:15px;margin-bottom:8px}
+.callout{border-left:4px solid var(--accent);background:rgba(79,156,249,.07);padding:14px 20px;border-radius:0 8px 8px 0;margin:18px 0}
+.callout.warn{border-left-color:var(--warn);background:rgba(247,201,72,.07)}
+.callout.danger{border-left-color:var(--danger);background:rgba(247,110,110,.07)}
+.callout.win{border-left-color:var(--accent2);background:rgba(126,224,163,.07)}
+.callout strong{color:#fff}
+table{width:100%;border-collapse:collapse;margin:16px 0;font-size:14px}
+th,td{text-align:left;padding:10px 14px;border:1px solid var(--border)}
+th{background:var(--sidebar);color:#fff;font-weight:600}
+td code{font-size:12.5px}
+.timeline{border-left:2px solid var(--border);margin-left:8px;padding-left:24px}
+.timeline .step{position:relative;margin-bottom:28px}
+.timeline .step::before{
+  content:'';position:absolute;left:-31px;top:5px;width:14px;height:14px;
+  border-radius:50%;background:var(--accent);border:3px solid var(--bg);
+}
+.timeline .step.fix::before{background:var(--danger)}
+.timeline .step.pivot::before{background:var(--warn)}
+.timeline .step h4{color:#fff;font-size:16px;margin-bottom:5px}
+.timeline .step .date{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.fnav{display:flex;justify-content:space-between;border-top:1px solid var(--border);padding-top:24px;color:var(--muted);font-size:14px;flex-wrap:wrap;gap:12px}
+@media(max-width:900px){
+  .sidebar{transform:translateX(-100%);transition:.3s}
+  .main{margin-left:0;padding:28px 20px}
+  header.page-header{padding:28px}
+}
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <h1>BillToBox<span>·Agent</span></h1>
+    <nav>
+      <div class="tag">Tutorial</div>
+      <a href="#overview">1 · Project Overview</a>
+      <a href="#stack">2 · Technology Stack</a>
+      <a href="#architecture">3 · Architecture</a>
+      <a href="#concepts">4 · Key Concepts</a>
+      <a href="#structure">5 · File Structure</a>
+      <a href="#prereqs">6 · Setup Prerequisites</a>
+      <a href="#patterns">7 · Common Patterns</a>
+      <a href="#chronicle">8 · Development Chronicle</a>
+      <a href="#lessons">9 · Lessons Learned</a>
+      <a href="#pitfalls">10 · Pitfalls & Gotchas</a>
+      <a href="#workplan">11 · Workplan & Next Steps</a>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <header class="page-header">
+      <h1>BillToBox Invoice Agent</h1>
+      <p>A supervised, agentic Python system that collects invoices from email, extracts
+      their fields with Claude AI, files the PDFs into Google Drive by accounting quarter,
+      and forwards them to Billtobox with human approval.</p>
+      <div>
+        <span class="badge">Python 3.11 / 3.12</span>
+        <span class="badge">FastAPI</span>
+        <span class="badge">Claude AI</span>
+        <span class="badge">SQLite + WAL</span>
+        <span class="badge">Raspberry Pi</span>
+      </div>
+    </header>
+
+    <!-- 1 -->
+    <section id="overview">
+      <h2><span class="num">1</span> Project Overview</h2>
+      <p><strong>BillToBoxAgent</strong> is a learning exercise in building a genuinely
+      <em>agentic</em> system — one with a tool-calling loop, policy-based autonomy, and a
+      steering dashboard — rather than a fixed script. It runs as two <code>systemd</code>
+      services on a Raspberry Pi, sitting alongside an existing project called
+      <strong>HomeEnergyCenter (HEC)</strong> whose conventions it deliberately mirrors.</p>
+
+      <h3>What it does, end to end</h3>
+      <ol>
+        <li>Polls <strong>Gmail</strong> and <strong>Outlook</strong> (Doccle is stubbed) for messages with PDF attachments that look like invoices.</li>
+        <li>Pre-filters candidates with cheap, model-free heuristics so junk never reaches the paid model.</li>
+        <li>De-duplicates by SHA-256 <em>content hash</em> so the same PDF is never processed twice.</li>
+        <li>Calls <strong>Claude</strong> to classify the document and extract structured fields (vendor, date, amount, currency, confidence).</li>
+        <li>Computes the <em>accounting quarter</em> from the invoice date and files the PDF to <code>Invoices/&lt;year&gt;/&lt;quarter&gt;/</code> in Google Drive.</li>
+        <li>Records every action in SQLite as an auditable <code>agent_events</code> trail.</li>
+        <li>Surfaces everything in a tailnet-only <strong>FastAPI dashboard</strong> where a human reviews, edits, and approves.</li>
+        <li>On explicit approval, emails the invoice PDF to the Billtobox upload mailbox via SMTP — <em>never</em> without the approval flag.</li>
+      </ol>
+
+      <h3>Who it serves</h3>
+      <p>A single user (the project owner) doing their own bookkeeping. The dashboard is
+      single-user and tailnet-only — there is no authentication beyond Tailscale network
+      membership.</p>
+
+      <div class="callout">
+        <strong>Core idea:</strong> SQLite is the index and audit log; <strong>Google Drive is the
+        system of record for the actual PDFs</strong>. SQLite stores Drive file IDs, not the bytes.
+      </div>
+    </section>
+
+    <!-- 2 -->
+    <section id="stack">
+      <h2><span class="num">2</span> Technology Stack</h2>
+      <div class="grid">
+        <div class="card"><h4>Language</h4>Python 3.11 &amp; 3.12 (CI matrix runs both). Local dev uses a 3.12 venv.</div>
+        <div class="card"><h4>Packaging</h4>venv + pip with <strong>hatchling</strong> backend. <em>No lockfile</em> — matches HEC.</div>
+        <div class="card"><h4>Config</h4><strong>YAML + Pydantic v2</strong> with <code>SecretStr</code>. Not <code>.env</code>.</div>
+        <div class="card"><h4>Database</h4>SQLite in <strong>WAL mode</strong> + SQLAlchemy 2.0 async + Alembic migrations.</div>
+        <div class="card"><h4>Logging</h4><strong>structlog</strong> → stdlib pipeline: rotating JSON file + stderr console.</div>
+        <div class="card"><h4>Web</h4>FastAPI + Jinja2 dashboard with SSE log streaming.</div>
+        <div class="card"><h4>AI</h4>Anthropic <strong>Claude</strong> via the Messages API tool-use pattern.</div>
+        <div class="card"><h4>Mail APIs</h4>Gmail (<code>google-api-python-client</code>), Microsoft Graph via <strong>MSAL</strong> + <code>requests</code>.</div>
+        <div class="card"><h4>Tooling</h4>ruff, black, mypy (strict), pytest, coverage, pre-commit, GitHub Actions CI.</div>
+        <div class="card"><h4>Deployment</h4>Raspberry Pi OS Lite, systemd (timer + oneshot + service), Caddy reverse proxy + <code>tailscale cert</code>.</div>
+      </div>
+      <div class="callout warn">
+        <strong>Convention rule:</strong> "Do not introduce any pattern not already present in
+        HomeEnergyCenter unless strictly unavoidable." Every choice above was checked against HEC first.
+      </div>
+    </section>
+
+    <!-- 3 -->
+    <section id="architecture">
+      <h2><span class="num">3</span> Architecture Overview</h2>
+      <p>Two independent systemd units that share host conventions but <strong>not</strong> code
+      or virtualenvs:</p>
+      <ul>
+        <li><strong>agent-worker</strong> — the agent loop, triggered by a systemd timer (daily 07:00). Fetches, extracts, files. <code>Type=oneshot</code> — runs one cycle and exits.</li>
+        <li><strong>dashboard</strong> — a long-lived FastAPI app (<code>Type=simple</code>) bound to <code>127.0.0.1:9003</code>, exposed over the tailnet via Caddy at public <code>:8003</code>.</li>
+      </ul>
+
+      <h3>Data flow per run</h3>
+<pre><code><span class="com"># For each enabled source (gmail, outlook):</span>
+fetch since watermark
+  → prefilter        <span class="com"># cheap, model-free gate</span>
+  → check_duplicate  <span class="com"># SHA-256 content hash</span>
+  → extract_invoice  <span class="com"># Claude — the only paid call</span>
+  → confidence gate  <span class="com"># &gt;= 0.85 auto-approve, else flag_for_review</span>
+  → ensure_quarter_folder + store_pdf_to_drive
+  → advance watermark
+close runs row with counts/errors
+<span class="com"># every step writes a redacted agent_events row</span></code></pre>
+
+      <h3>Why WAL</h3>
+      <p>Because the worker and dashboard are <em>two separate processes</em> touching the same
+      SQLite file, the database runs in <strong>WAL (Write-Ahead Logging) mode</strong>. The worker
+      is the <em>sole writer</em>; the dashboard mostly reads and writes only small status fields.</p>
+
+      <div class="callout">
+        <strong>The two-layer observability design</strong> (a deliberate owner priority):
+        <ul style="margin-bottom:0">
+          <li><strong>Layer A</strong> — structlog JSON file + <code>/api/logs/stream</code> SSE live tail + <code>/logs</code>/<code>/debug</code> views.</li>
+          <li><strong>Layer B</strong> — the <code>agent_events</code> SQLite table recording every tool call/result/decision (secrets &amp; PDF bytes redacted), shown as an "Agent activity" timeline and a per-invoice audit trail, and exposed to Claude itself as a read-only <code>get_agent_events</code> tool so it can self-correct.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- 4 -->
+    <section id="concepts">
+      <h2><span class="num">4</span> Key Concepts</h2>
+      <table>
+        <tr><th>Term</th><th>What it means</th></tr>
+        <tr><td><code>content_hash</code></td><td>SHA-256 of the PDF bytes, stored with a UNIQUE constraint. The idempotency key: a PDF already seen is never reprocessed or re-uploaded.</td></tr>
+        <tr><td>Watermark</td><td>Per-source last-seen message timestamp stored in <code>source_status</code>. Reruns only fetch messages newer than the watermark.</td></tr>
+        <tr><td><code>period_for()</code></td><td>The pure, I/O-free function mapping an invoice date to <code>(fy_label, quarter)</code>. Drives the Drive folder layout.</td></tr>
+        <tr><td>Confidence gate</td><td>Claude returns a confidence 0.0–1.0; items below the configured threshold (<strong>0.85</strong>) are not auto-approved — they go to <code>flag_for_review</code>.</td></tr>
+        <tr><td>Prefilter</td><td>Model-free accept/reject gate: PDF magic bytes, sender allow/blocklist, subject keywords. Runs before any paid Claude call.</td></tr>
+        <tr><td><code>agent_events</code></td><td>The audit log table — every tool call, result, and decision, redacted of secrets and PDF bytes.</td></tr>
+        <tr><td><code>redact()</code></td><td>Utility at the <code>agent_events</code> write boundary: scrubs API keys/tokens, replaces PDF bytes with hash + length.</td></tr>
+        <tr><td>Human-approval flag</td><td>An invoice status (<code>upload_approved</code>) set <em>only</em> via the dashboard. The worker never emails Billtobox without it.</td></tr>
+      </table>
+
+      <h3>The accounting-quarter rules</h3>
+<pre><code><span class="fn">period_for</span>(invoice_date, fy_start_month=<span class="num2">1</span>, fy_label_prefix=<span class="str">""</span>)
+<span class="com"># Calendar default (fy_start_month=1):</span>
+<span class="com">#   Jan–Mar → Q1   Apr–Jun → Q2   Jul–Sep → Q3   Oct–Dec → Q4</span>
+<span class="com"># Offset fiscal year (e.g. fy_start_month=4):</span>
+<span class="com">#   Apr–Jun → Q1 ... Jan–Mar → Q4 of the PRIOR FY label</span>
+<span class="com"># The FY is labelled by its START year.</span></code></pre>
+
+      <h3>The 10 agent tools</h3>
+      <p>In Phase 4 the linear pipeline becomes a tool-calling loop registering these:</p>
+      <ul>
+        <li><code>search_mail</code>, <code>get_pdf</code>, <code>extract_invoice</code>, <code>check_duplicate</code></li>
+        <li><code>ensure_quarter_folder</code>, <code>store_pdf_to_drive</code></li>
+        <li><code>queue_billtobox_upload</code>, <code>email_to_billtobox</code>, <code>flag_for_review</code></li>
+        <li><code>get_agent_events</code> — read-only; lets Claude inspect its own history and self-correct (the 10th, added during planning)</li>
+      </ul>
+    </section>
+
+    <!-- 5 -->
+    <section id="structure">
+      <h2><span class="num">5</span> File Structure</h2>
+      <p>The project uses a <strong>src layout</strong> with domain sub-packages, each a documented
+      <code>__init__.py</code> with <code>__all__</code> re-exports:</p>
+<pre><code>BillToBoxAgent/
+├── pyproject.toml            <span class="com"># hatchling; ruff/black/mypy/pytest config</span>
+├── config.example.yaml       <span class="com"># REPLACE_ME placeholders — no .env</span>
+├── CONVENTIONS.md            <span class="com"># how HEC does things (the reference)</span>
+├── decisions.md              <span class="com"># locked answers to open questions</span>
+├── WORKPLAN.md               <span class="com"># the 26-task roadmap</span>
+├── alembic.ini  +  alembic/  <span class="com"># async migrations; 0001_initial</span>
+├── .pre-commit-config.yaml
+├── .github/workflows/ci.yml  <span class="com"># matrix 3.11/3.12</span>
+├── scripts/
+│   ├── auth_google.py        <span class="com"># one-time OAuth consent (browser machine)</span>
+│   ├── auth_ms.py            <span class="com"># MSAL device-code consent</span>
+│   └── install-units.sh
+├── docs/
+│   ├── python-setup.md
+│   └── raspberry-pi-setup.md <span class="com"># the deployment guide (task 24)</span>
+├── src/billtobox_agent/
+│   ├── config/      <span class="com"># models.py (AppConfig), loader.py</span>
+│   ├── data/        <span class="com"># models.py, database.py, repositories.py, unit_of_work.py</span>
+│   ├── monitoring/  <span class="com"># logging_config.py</span>
+│   ├── mail/        <span class="com"># base.py, gmail.py, outlook.py, graph.py, doccle.py, prefilter.py, fetch.py</span>
+│   ├── extraction/  <span class="com"># period.py, (Claude extraction)</span>
+│   ├── pipeline/    <span class="com"># dedup.py, run_once (linear worker steps)</span>
+│   ├── drive/       <span class="com"># quarter folders + PDF upload</span>
+│   ├── billtobox/   <span class="com"># SMTP send</span>
+│   ├── agent/       <span class="com"># the LLM tool-loop (Phase 4)</span>
+│   ├── web/         <span class="com"># FastAPI app, views.py, api.py</span>
+│   └── utils/       <span class="com"># redact.py, hashing.py, clock.py</span>
+└── tests/{unit,integration,fixtures}/</code></pre>
+      <div class="callout">
+        <strong>Note the split:</strong> <code>pipeline/</code> holds linear-worker steps that aren't
+        owned by an external-service domain. <code>agent/</code> is reserved for the future LLM
+        tool-loop. This distinction was introduced deliberately in task 12.
+      </div>
+    </section>
+
+    <!-- 6 -->
+    <section id="prereqs">
+      <h2><span class="num">6</span> Setup Prerequisites</h2>
+      <h3>Local development</h3>
+      <ol>
+        <li>Install <strong>Python 3.12</strong> (or 3.11). Verify with <code>python --version</code>.</li>
+        <li>Create and activate a virtual environment, then <code>pip install -e ".[dev]"</code>.</li>
+        <li>Copy <code>config.example.yaml</code> → <code>config.yaml</code> and fill placeholders.</li>
+        <li>Run the full toolchain to confirm a clean tree:</li>
+      </ol>
+<pre><code>ruff check . && black --check . && mypy src && pytest</code></pre>
+
+      <div class="callout danger">
+        <strong>Dropbox caveat:</strong> if your repo lives in Dropbox, mark <code>.venv</code> with the
+        <code>com.dropbox.ignored</code> NTFS stream <em>before</em> installing. A synced venv hits
+        file-locks (WinError 32) and corr
