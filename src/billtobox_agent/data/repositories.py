@@ -67,6 +67,16 @@ class InvoicesRepository:
         await self._session.flush()
         return invoice
 
+    async def mark_uploaded(self, invoice_id: int) -> Invoice:
+        """Record a confirmed Billtobox send: status ``uploaded`` + ``uploaded_at`` (task 20)."""
+        invoice = await self.get(invoice_id)
+        if invoice is None:
+            raise ValueError(f"invoice {invoice_id} not found")
+        invoice.status = InvoiceStatus.UPLOADED.value
+        invoice.uploaded_at = datetime.now(UTC)
+        await self._session.flush()
+        return invoice
+
     async def record_extraction(
         self,
         invoice_id: int,

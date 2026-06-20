@@ -118,6 +118,7 @@ Use WAL mode with a single writer (the worker). The dashboard performs mostly re
 | `run_id` | INTEGER | FK to runs table |
 | `created_at` | TEXT | ISO 8601 timestamp |
 | `updated_at` | TEXT | ISO 8601 timestamp |
+| `uploaded_at` | TEXT | ISO 8601, nullable; set on the Billtobox send (task 20, migration 0002) |
 
 ### `runs` table
 

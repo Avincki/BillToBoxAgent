@@ -615,3 +615,38 @@ mypy ✓ (47 files), pytest ✓ (167, up from 163).
 Next up: **task 20** (`email_to_billtobox` — SMTP send + the new `uploaded_at` column/migration),
 then the deployment tail (22 systemd, 23 Caddy/Tailscale, 24 Pi guide, 25 on-Pi smoke-run, 26 ops
 README).
+
+## 2026-06-20 — WORKPLAN task 20: Billtobox email send (SMTP)
+
+The final money-adjacent step. As flagged after task 19, the locked schema had no `uploaded_at`
+column, so this task adds it: a `Mapped[datetime | None]` on the `Invoice` model + Alembic
+**migration 0002** (`add_invoices.uploaded_at`; plain `op.add_column`/`drop_column` since
+`alembic/env.py` sets `render_as_batch` for SQLite) + a row in the `CLAUDE.alex-vinckier.md`
+invoices schema table. `InvoicesRepository.mark_uploaded` sets status `uploaded` + `uploaded_at`.
+
+Added `billtobox/send.py`:
+- `email_to_billtobox(uow, drive, invoice_id, *, billtobox, transport, run_id, step) -> str` —
+  **two hard guards that raise** (so it can never send without approval and never send twice):
+  status must be `upload_approved`, and `uploaded_at` must be NULL (plus a guard that a stored PDF
+  exists). On a confirmed send it downloads the PDF from Drive, builds an `EmailMessage` (subject =
+  the invoice filename, from `billtobox.sender_address` to `mailbox_address`, PDF attached),
+  sends via the injected transport, marks the invoice `uploaded`, and writes redacted
+  `agent_events` (tool_call → tool_result; the PDF bytes never logged).
+- `SmtpTransport` (production: STARTTLS + app-password `smtplib.SMTP`) behind a `MailTransport`
+  Protocol so tests inject a fake. `BilltoboxSendError` for guard violations.
+
+The send is **not** wired into the agent loop (task 21 deliberately omits `email_to_billtobox` — the
+autonomous agent queues, never sends) — it's the human-approved send, triggered separately
+(dashboard/sender); wiring a trigger is a small follow-up, out of this task's scope.
+
+6 tests (`tests/integration/test_billtobox.py`): a success path (PDF attached, subject/from/to,
+status→uploaded + uploaded_at set, event recorded); a second call refused + nothing sent; the
+not-upload_approved guard; the already-uploaded guard; the no-stored-PDF guard; and `SmtpTransport`
+driving a monkeypatched `smtplib.SMTP` (starttls + login + send_message). The migration test now
+exercises 0001→0002→down clean. Toolchain green under the 3.12 venv: ruff ✓, ruff-format ✓, black
+✓, mypy ✓ (48 files), pytest ✓ (173, up from 167).
+
+**All of tasks 1–21 are now complete** — the entire application (ingest → extract → file →
+dashboard → agent loop → Billtobox send) is built and tested. Only the deployment tail remains: 22
+(systemd units), 23 (Caddy + Tailscale), 24 (Raspberry-Pi guide), 25 (on-Pi smoke-run), 26 (ops
+README).

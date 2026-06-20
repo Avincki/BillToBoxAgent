@@ -108,6 +108,8 @@ class Invoice(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_utcnow, onupdate=_utcnow, nullable=False
     )
+    # Set when the PDF is emailed to Billtobox (task 20); NULL guards against a double-send.
+    uploaded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class SourceStatus(Base):
