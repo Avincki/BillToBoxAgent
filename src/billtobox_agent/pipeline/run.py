@@ -22,7 +22,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import UTC, date, datetime
 
 import anthropic
 import structlog
@@ -59,6 +59,9 @@ class WorkerContext:
     drive: DriveConnector
     anthropic_client: anthropic.Anthropic
     dry_run: bool = False
+    # When False, no invoice may be emailed to the live Billtobox service (test runs).
+    # Enforced at the send chokepoint (``email_to_billtobox``); recorded per run.
+    billtobox_send_enabled: bool = True
 
 
 @dataclass
@@ -72,9 +75,18 @@ class RunSummary:
     dry_run: bool = False
 
 
-async def run_once(ctx: WorkerContext) -> RunSummary:
-    """Process every enabled source once and return a :class:`RunSummary`."""
+async def run_once(ctx: WorkerContext, *, since_override: date | None = None) -> RunSummary:
+    """Process every enabled source once and return a :class:`RunSummary`.
+
+    ``since_override`` (a date, e.g. from the web run form) makes every source fetch
+    from that day instead of its stored watermark — used for the first run.
+    """
     summary = RunSummary(run_id=None, dry_run=ctx.dry_run)
+    since_dt = (
+        datetime(since_override.year, since_override.month, since_override.day, tzinfo=UTC)
+        if since_override is not None
+        else None
+    )
 
     async with UnitOfWork(ctx.session_factory) as uow:
         run = await uow.runs.start()
@@ -82,6 +94,7 @@ async def run_once(ctx: WorkerContext) -> RunSummary:
         if not ctx.dry_run:
             summary.run_id = run_id
             await uow.commit()  # persist the run row up front for stable FK references
+        await _record_run_start(uow, run_id, ctx, since_dt)
 
         step = 0
         for source in ctx.config.sources.polling:
@@ -93,7 +106,7 @@ async def run_once(ctx: WorkerContext) -> RunSummary:
                 continue
 
             try:
-                pdfs = await fetch_new_pdfs(connector, uow)
+                pdfs = await fetch_new_pdfs(connector, uow, since_override=since_dt)
             except Exception as exc:  # isolate one source's failure
                 _log.exception("pipeline.fetch_failed", source=connector.source)
                 await uow.source_status.record_error(connector.source, str(exc))
@@ -146,6 +159,30 @@ async def run_once(ctx: WorkerContext) -> RunSummary:
         dry_run=summary.dry_run,
     )
     return summary
+
+
+async def _record_run_start(
+    uow: UnitOfWork,
+    run_id: int | None,
+    ctx: WorkerContext,
+    since_dt: datetime | None,
+) -> None:
+    """Audit the run's mode so the dashboard shows whether it was a dry/no-send run."""
+    await uow.agent_events.add(
+        event_type=AgentEventType.DECISION,
+        summary=(
+            f"Run started (dry_run={ctx.dry_run}, "
+            f"billtobox_send={'on' if ctx.billtobox_send_enabled else 'off'})"
+        ),
+        run_id=run_id,
+        step=0,
+        tool="run_once",
+        outputs={
+            "dry_run": ctx.dry_run,
+            "billtobox_send_enabled": ctx.billtobox_send_enabled,
+            "since_override": since_dt.isoformat() if since_dt else None,
+        },
+    )
 
 
 async def _process_pdf(

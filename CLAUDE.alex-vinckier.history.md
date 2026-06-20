@@ -767,3 +767,39 @@ fallback, empty body, provenance/filename) + bodyless cases and updated
 query/filter assertions in `test_gmail.py`/`test_outlook.py`. Toolchain green
 (ruff/black/mypy), pytest 188 passed. Added `fpdf2>=2.7,<3.0` to dependencies and
 documented the flag in `config.example.yaml`.
+
+---
+
+## 2026-06-20 — Web-launched runs: start date, dry-run, no-send safety
+
+Made processing runs launchable + configurable from the dashboard for test/quality
+cycles. The `/runs` page now carries a real run form (was a bare "Run now" button):
+
+- **Start from date** (optional): threads a `since_override` date through
+  `run_once → fetch_new_pdfs`. When set it *replaces* the stored watermark as the
+  fetch floor (authoritative — the user's explicit choice), so the first
+  web-launched run only ingests mail from that day forward; the
+  source_message_id dedup still prevents reprocessing. Blank resumes from the
+  per-source watermark as before.
+- **Dry run** (preview): exposes the existing `ctx.dry_run` (fetch + extract, no
+  Drive upload, no commits).
+- **Do not send to Billtobox** (checked by default): per-run safety so test runs
+  can't touch the live service. Note: a run never auto-sends today anyway —
+  `email_to_billtobox` is a separate, human-approval-gated step not wired into
+  `run_once` or the agent loop — so per the user's choice this is a **per-run
+  flag only** (no global config switch). It's carried on
+  `WorkerContext.billtobox_send_enabled` and enforced as a hard guard at the
+  single send chokepoint (`email_to_billtobox` raises `BilltoboxSendError` when
+  `send_enabled=False`), so any current/future send path honours it. `run_once`
+  records the run mode (dry_run / billtobox_send on|off / since) in a `run_once`
+  DECISION `agent_event`, visible on `/activity`.
+
+Wiring: `web/steering.py::manual_run` parses the form (`since`, `dry_run`,
+`no_send`) and builds the context; added an `_is_checked` helper. `runs.html`
+reuses the `.edit-form` panel styling (+ a `.check`/`.hint` tweak in
+`style.css`). The scheduled worker path is unchanged (defaults: send enabled).
+
+Tests (+5, 193 total): send-disabled guard sends nothing and leaves status
+`upload_approved` (`test_billtobox`); `since_override` sets the fetch floor
+(`test_gmail`); web start-date skips older mail, dry-run persists nothing,
+no-send mode is audited (`test_steering`). Toolchain green (ruff/black/mypy).

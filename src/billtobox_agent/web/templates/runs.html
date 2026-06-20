@@ -3,10 +3,23 @@
 {% block content %}
 <div class="actions">
   <h2>Run history</h2>
-  <form method="post" action="/run">
-    <button type="submit">Run now</button>
-  </form>
 </div>
+<form method="post" action="/run" class="edit-form run-form">
+  <h4>Launch a processing run</h4>
+  <label>Start from date
+    <input type="date" name="since">
+    <span class="hint">optional — first run only; blank resumes from the last run</span>
+  </label>
+  <label class="check">
+    <input type="checkbox" name="no_send" checked>
+    Do not send to Billtobox (test run)
+  </label>
+  <label class="check">
+    <input type="checkbox" name="dry_run">
+    Dry run (preview — don't store to Drive or save)
+  </label>
+  <button type="submit">Run now</button>
+</form>
 {% if not runs %}
 <p class="empty">No runs yet.</p>
 {% else %}

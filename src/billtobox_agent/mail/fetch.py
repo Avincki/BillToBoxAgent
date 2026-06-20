@@ -15,11 +15,24 @@ from billtobox_agent.data import UnitOfWork
 from billtobox_agent.mail.base import FetchedPdf, MailConnector
 
 
-async def fetch_new_pdfs(connector: MailConnector, uow: UnitOfWork) -> list[FetchedPdf]:
-    stored = await uow.source_status.get_watermark(connector.source)
-    # SQLite drops tzinfo on round-trip; treat the stored watermark as UTC so the
-    # connector's ``after:`` epoch is computed correctly.
-    since = stored.replace(tzinfo=UTC) if (stored is not None and stored.tzinfo is None) else stored
+async def fetch_new_pdfs(
+    connector: MailConnector,
+    uow: UnitOfWork,
+    *,
+    since_override: datetime | None = None,
+) -> list[FetchedPdf]:
+    if since_override is not None:
+        # An explicit starting date (e.g. the first web-launched run) overrides the
+        # stored watermark: fetch from exactly this point. Already-processed messages
+        # are still skipped below via the source_message_id dedup.
+        since: datetime | None = since_override
+    else:
+        stored = await uow.source_status.get_watermark(connector.source)
+        # SQLite drops tzinfo on round-trip; treat the stored watermark as UTC so the
+        # connector's ``after:`` epoch is computed correctly.
+        since = (
+            stored.replace(tzinfo=UTC) if (stored is not None and stored.tzinfo is None) else stored
+        )
 
     refs = await asyncio.to_thread(connector.search, since)
 

@@ -129,6 +129,9 @@ button:hover { border-color: var(--accent); }
 }
 .edit-form h4 { width: 100%; margin: 0 0 0.25rem; }
 .edit-form label { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.82rem; color: var(--muted); }
+.edit-form label.check { flex-direction: row; align-items: center; gap: 0.4rem; }
+.edit-form .hint { font-size: 0.72rem; color: var(--muted); }
+.run-form { align-items: flex-start; }
 .edit-form input {
   background: var(--bg);
   color: var(--fg);

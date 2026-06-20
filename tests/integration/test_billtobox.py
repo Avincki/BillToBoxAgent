@@ -154,6 +154,31 @@ async def test_second_send_raises_and_sends_nothing(tmp_path: Path) -> None:
     assert len(transport.sent) == 1  # only the first send
 
 
+async def test_send_refused_when_disabled(tmp_path: Path) -> None:
+    engine, factory = await _factory(tmp_path)
+    invoice_id = await _seed(factory, status=InvoiceStatus.UPLOAD_APPROVED.value)
+    drive = DriveConnector(FakeDriveService(_PDF))  # type: ignore[arg-type]
+    transport = FakeTransport()
+
+    async with UnitOfWork(factory) as uow:
+        with pytest.raises(BilltoboxSendError, match="disabled"):
+            await email_to_billtobox(
+                uow,
+                drive,
+                invoice_id,
+                billtobox=_billtobox(),
+                transport=transport,
+                send_enabled=False,
+            )
+        invoice = await uow.invoices.get(invoice_id)
+        assert invoice is not None
+        status = invoice.status  # still approved, untouched — a test run sends nothing
+
+    await engine.dispose()
+    assert transport.sent == []  # the live service was never contacted
+    assert status == InvoiceStatus.UPLOAD_APPROVED
+
+
 async def test_send_refused_when_not_upload_approved(tmp_path: Path) -> None:
     engine, factory = await _factory(tmp_path)
     invoice_id = await _seed(factory, status=InvoiceStatus.STORED.value)

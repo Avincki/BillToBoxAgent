@@ -68,15 +68,22 @@ async def email_to_billtobox(
     *,
     billtobox: BilltoboxConfig,
     transport: MailTransport,
+    send_enabled: bool = True,
     run_id: int | None = None,
     step: int = 0,
 ) -> str:
     """Email the invoice's stored PDF to Billtobox. Returns the attachment filename.
 
-    Raises :class:`BilltoboxSendError` if the invoice is not ``upload_approved``,
-    has already been uploaded, or has no stored PDF — so a re-invocation sends
-    nothing.
+    Raises :class:`BilltoboxSendError` if sending is disabled (``send_enabled`` is
+    ``False`` — e.g. a test run that must not touch the live service), if the
+    invoice is not ``upload_approved``, has already been uploaded, or has no stored
+    PDF — so a re-invocation sends nothing.
     """
+    if not send_enabled:
+        raise BilltoboxSendError(
+            f"Billtobox sending is disabled (test mode); invoice {invoice_id} not sent"
+        )
+
     invoice = await uow.invoices.get(invoice_id)
     if invoice is None:
         raise BilltoboxSendError(f"invoice {invoice_id} not found")

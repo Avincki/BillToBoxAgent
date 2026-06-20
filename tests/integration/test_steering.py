@@ -358,6 +358,43 @@ async def test_manual_run_executes(
     assert invoice_count == 2  # the seeded invoice + the one fetched by the run
 
 
+async def test_manual_run_start_date_skips_older_mail(
+    steering: tuple[AsyncClient, int, FakeDriveService],
+) -> None:
+    client, _invoice_id, _drive = steering
+    # The fake message is dated 2026-06-01; a later start date fetches nothing.
+    resp = await client.post("/run", data={"since": "2026-06-02"})
+    assert resp.status_code == 303
+    async with UnitOfWork(_factory(client)) as uow:
+        invoice_count = len(await uow.invoices.list())
+    assert invoice_count == 1  # only the seeded invoice; nothing newer than the floor
+
+
+async def test_manual_run_dry_run_makes_no_writes(
+    steering: tuple[AsyncClient, int, FakeDriveService],
+) -> None:
+    client, _invoice_id, _drive = steering
+    resp = await client.post("/run", data={"dry_run": "on"})
+    assert resp.status_code == 303
+    async with UnitOfWork(_factory(client)) as uow:
+        runs = await uow.runs.list()
+        invoice_count = len(await uow.invoices.list())
+    assert runs == []  # dry run never commits the run row
+    assert invoice_count == 1  # nothing persisted beyond the seeded invoice
+
+
+async def test_manual_run_no_send_is_audited(
+    steering: tuple[AsyncClient, int, FakeDriveService],
+) -> None:
+    client, _invoice_id, _drive = steering
+    resp = await client.post("/run", data={"no_send": "on"})
+    assert resp.status_code == 303
+    async with UnitOfWork(_factory(client)) as uow:
+        events = await uow.agent_events.list()
+        summaries = [e.summary for e in events if e.tool == "run_once"]
+    assert any("billtobox_send=off" in s for s in summaries)  # the no-send mode is recorded
+
+
 async def test_steering_post_requires_same_origin(
     steering: tuple[AsyncClient, int, FakeDriveService],
 ) -> None:

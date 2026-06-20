@@ -56,6 +56,11 @@ def _float_or_none(value: object, field: str) -> float | None:
         raise HTTPException(status_code=400, detail=f"invalid {field}: {text!r}") from exc
 
 
+def _is_checked(value: object) -> bool:
+    """An HTML checkbox submits its value only when ticked (absent otherwise)."""
+    return isinstance(value, str) and value.strip().lower() in {"on", "true", "1", "yes"}
+
+
 def _date_or_none(value: object, field: str) -> date | None:
     text = _str_or_none(value)
     if text is None:
@@ -156,12 +161,18 @@ async def manual_run(
         raise HTTPException(
             status_code=503, detail="worker components unavailable (check config/tokens)"
         )
+    form: FormData = await request.form()
+    since = _date_or_none(form.get("since"), "since")
+    dry_run = _is_checked(form.get("dry_run"))
+    no_send = _is_checked(form.get("no_send"))
     ctx = WorkerContext(
         config=config,
         session_factory=get_session_factory(request),
         mail_connectors=mail_connectors,
         drive=drive,
         anthropic_client=anthropic_client,
+        dry_run=dry_run,
+        billtobox_send_enabled=not no_send,
     )
-    await run_once(ctx)
+    await run_once(ctx, since_override=since)
     return RedirectResponse("/runs", status_code=303)

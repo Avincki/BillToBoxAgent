@@ -243,6 +243,23 @@ async def test_fetch_new_pdfs_advances_watermark(tmp_path: Path) -> None:
     assert got == datetime.fromtimestamp(1_700_100_000, tz=UTC)
 
 
+async def test_fetch_since_override_sets_fetch_floor(tmp_path: Path) -> None:
+    engine = await _fresh_engine(tmp_path)
+    factory = create_session_factory(engine)
+    service = FakeGmailService(_messages())
+    connector = GmailConnector(service)
+    override = datetime.fromtimestamp(1_700_050_000, tz=UTC)
+
+    async with UnitOfWork(factory) as uow:
+        await fetch_new_pdfs(connector, uow, since_override=override)
+        await uow.commit()
+
+    await engine.dispose()
+
+    # The override is honoured as the fetch floor even with no stored watermark.
+    assert "after:1700050000" in service.last_query
+
+
 async def test_fetch_skips_already_processed_message(tmp_path: Path) -> None:
     engine = await _fresh_engine(tmp_path)
     factory = create_session_factory(engine)
