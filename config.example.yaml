@@ -6,6 +6,9 @@
 
 anthropic:
   api_key: REPLACE_ME              # Anthropic API key (sk-ant-...)
+  # model: claude-opus-4-8         # override to claude-sonnet-4-6 / claude-haiku-4-5 for a cheaper tier
+  # max_tokens: 1024               # extraction returns a small JSON object
+  # max_attempts: 3                # retries on transient API errors (rate-limit / 5xx / connection)
 
 google:                            # Gmail (read-only) + Drive (drive.file); one OAuth client, consent once
   client_id: REPLACE_ME

@@ -263,3 +263,43 @@ green: ruff ✓, ruff-format ✓, black ✓, mypy ✓ (33 files), pytest ✓ (10
 
 Next up: task 13 (Claude extraction) — the first model call, gated by `prefilter`
 (task 11) and `check_duplicate` (task 12).
+
+## 2026-06-20 — WORKPLAN task 13: Claude invoice extraction
+
+The first model call. Read the `claude-api` skill first (CLAUDE.md mandates it for any
+Claude/Anthropic work) for the current model id, the base64 `document` block shape, and
+the transient-error classes. Added `extraction/extract.py`:
+
+- `extract_fields(client, pdf_bytes, *, config, confidence_threshold) -> ExtractionResult`
+  — the sync core: base64 `document` block (`standard_b64encode`, no newlines) + a
+  JSON-only instruction → parse the text block (tolerating a stray ```json fence) →
+  validate against a Pydantic `ExtractedInvoice` (is_invoice, confidence 0-1, vendor,
+  invoice_date as date, amount, currency ISO-4217) → apply the confidence gate
+  (`auto_approve = is_invoice and confidence >= threshold`). Malformed/invalid responses
+  raise `ExtractionError`.
+- `extract_invoice(...)` — async pipeline tool: runs `extract_fields` in a worker thread
+  (anthropic SDK is sync, like the gmail/graph connectors) and writes redacted
+  `agent_events` (`tool_call` with the PDF bytes → hash+len, `tool_result` with the
+  fields, or `error`). Never logs the PDF bytes or the API key.
+- Retry: chose `tenacity` (already a dep) over the SDK's built-in retries — disabled the
+  SDK's (`max_retries=0` in `build_anthropic_client`) so our loop is the single, testable
+  source of truth and each attempt is auditable. Retries only the transient classes
+  (`APIConnectionError`, `RateLimitError`, `InternalServerError`); a 400 propagates at once.
+
+Config: added `model` (default **`claude-opus-4-8`** per the reference — the owner can drop
+to `claude-sonnet-4-6`/`claude-haiku-4-5` in config.yaml since cost is their call),
+`max_tokens` (1024), and `max_attempts` (3) to `AnthropicConfig`; documented in
+config.example.yaml. Used the instruction+Pydantic approach rather than
+`output_config.format` to stay robust across the SDK range and to keep validation in our
+own (testable) code. Installed SDK is anthropic 0.111.0.
+
+15 tests (`tests/integration/test_extraction.py`) against a fake client: valid parse +
+base64 document block sent + model id; low-confidence and non-invoice both → not
+auto-approved; six malformed payloads rejected; code-fence tolerance; retry fires once on
+a transient error, not retried on a 400, reraises after exhaustion; and the async path
+emits redacted events (no PDF bytes, no api key) plus an error event on failure. Toolchain
+green: ruff ✓, ruff-format ✓, black ✓, mypy ✓ (34 files), pytest ✓ (118, up from 103).
+Phase 2 has begun.
+
+Next up: task 14 (Drive quarter-folder management) — `ensure_quarter_folder` via Drive v3,
+reusing the task-8 Google creds + `period_for` (task 6).

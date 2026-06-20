@@ -29,7 +29,13 @@ class _StrictModel(BaseModel):
 
 class AnthropicConfig(_StrictModel):
     api_key: SecretStr
-    # The model id and SDK specifics are settled in task 13 (extraction).
+    # Default per the claude-api reference; override to a cheaper tier (e.g.
+    # claude-sonnet-4-6, claude-haiku-4-5) in config.yaml if you prefer.
+    model: str = Field(default="claude-opus-4-8", min_length=1)
+    # Extraction returns a small JSON object — 1024 output tokens is ample.
+    max_tokens: Annotated[int, Field(ge=1)] = 1024
+    # Total attempts (1 try + retries) on transient API errors during extraction.
+    max_attempts: Annotated[int, Field(ge=1)] = 3
 
 
 class GoogleConfig(_StrictModel):
