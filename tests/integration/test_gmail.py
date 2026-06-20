@@ -12,7 +12,13 @@ from billtobox_agent.data import (
     create_session_factory,
     init_schema,
 )
-from billtobox_agent.mail import GMAIL_QUERY, GmailConnector, fetch_new_pdfs
+from billtobox_agent.mail import (
+    GMAIL_QUERY,
+    GMAIL_QUERY_INCLUDING_BODYLESS,
+    GmailConnector,
+    fetch_new_pdfs,
+)
+from billtobox_agent.mail.prefilter import PDF_MAGIC
 
 _PDF1 = b"%PDF-1.7 invoice one"
 _PDF2 = b"%PDF-1.7 invoice two"
@@ -90,7 +96,7 @@ class _Messages:
                     },
                 }
             )
-        parts = [
+        parts: list[dict[str, Any]] = [
             {
                 "filename": filename,
                 "mimeType": "application/pdf",
@@ -98,6 +104,9 @@ class _Messages:
             }
             for i, (filename, _data) in enumerate(message["pdfs"])
         ]
+        for mime_type, raw in message.get("body_parts", []):
+            data = base64.urlsafe_b64encode(raw.encode("utf-8")).decode()
+            parts.append({"filename": "", "mimeType": mime_type, "body": {"data": data}})
         return _Req({"id": id, "payload": {"parts": parts}})
 
     def attachments(self) -> _Attachments:
@@ -127,7 +136,7 @@ class FakeGmailService:
 
 def test_search_builds_query_and_parses_refs() -> None:
     service = FakeGmailService(_messages())
-    connector = GmailConnector(service)
+    connector = GmailConnector(service, render_bodyless=False)
 
     refs = connector.search()
 
@@ -136,6 +145,16 @@ def test_search_builds_query_and_parses_refs() -> None:
     assert refs[0].sender == "billing@kpn.com"
     assert refs[0].subject == "Invoice 1"
     assert refs[0].received_at == datetime.fromtimestamp(1_700_000_000, tz=UTC)
+
+
+def test_search_bodyless_mode_drops_attachment_requirement() -> None:
+    service = FakeGmailService(_messages())
+    connector = GmailConnector(service)  # render_bodyless=True by default
+
+    connector.search()
+
+    assert service.last_query == GMAIL_QUERY_INCLUDING_BODYLESS
+    assert "has:attachment" not in service.last_query
 
 
 def test_search_with_since_adds_after_clause() -> None:
@@ -157,6 +176,41 @@ def test_download_pdfs_decodes_attachment_bytes() -> None:
     assert pdfs[0].filename == "invoice1.pdf"
     assert pdfs[0].pdf_bytes == _PDF1
     assert pdfs[0].message.message_id == "m1"
+
+
+def test_download_pdfs_renders_body_when_no_attachment() -> None:
+    message = {
+        "id": "b1",
+        "internal_date_ms": 1_700_200_000_000,
+        "subject": "Factuur mei",
+        "sender": "facturen@kpn.be",
+        "pdfs": [],
+        "body_parts": [("text/html", "<p>Bedrag: 149,95 EUR</p>")],
+    }
+    connector = GmailConnector(FakeGmailService([message]))
+    ref = connector.search()[0]
+
+    pdfs = connector.download_pdfs(ref)
+
+    assert len(pdfs) == 1
+    assert pdfs[0].pdf_bytes.startswith(PDF_MAGIC)  # a real, prefilter-passing PDF
+    assert pdfs[0].filename == "gmail-email-20231117.pdf"
+    assert pdfs[0].message.message_id == "b1"
+
+
+def test_download_pdfs_skips_body_render_when_disabled() -> None:
+    message = {
+        "id": "b2",
+        "internal_date_ms": 1_700_200_000_000,
+        "subject": "Factuur mei",
+        "sender": "facturen@kpn.be",
+        "pdfs": [],
+        "body_parts": [("text/plain", "Bedrag: 149,95 EUR")],
+    }
+    connector = GmailConnector(FakeGmailService([message]), render_bodyless=False)
+    ref = connector.search()[0]
+
+    assert connector.download_pdfs(ref) == []  # no attachment, rendering off
 
 
 # ----- fetch (watermark + dedup) tests ----------------------------------------

@@ -35,12 +35,17 @@ def build_mail_connectors(config: AppConfig) -> dict[str, MailConnector]:
     Shared with the dashboard's manual-run trigger (task 19).
     """
     connectors: dict[str, MailConnector] = {}
+    render_bodyless = config.sources.render_bodyless_emails
     for source in config.sources.polling:
         try:
             if source == Source.GMAIL:
-                connectors[source.value] = GmailConnector.from_config(config.google)
+                connectors[source.value] = GmailConnector.from_config(
+                    config.google, render_bodyless=render_bodyless
+                )
             elif source == Source.OUTLOOK:
-                connectors[source.value] = OutlookConnector.from_config(config.microsoft)
+                connectors[source.value] = OutlookConnector.from_config(
+                    config.microsoft, render_bodyless=render_bodyless
+                )
             else:
                 _log.warning("worker.source_unsupported", source=source.value)
         except Exception:  # a credential/setup failure skips one source

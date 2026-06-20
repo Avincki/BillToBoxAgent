@@ -123,6 +123,10 @@ class Source(StrEnum):
 
 class SourcesConfig(_StrictModel):
     polling: tuple[Source, ...] = (Source.GMAIL, Source.OUTLOOK)
+    # When True, invoice-keyword mail without a PDF attachment is still collected
+    # and its body is rendered to a PDF (body-only invoices). Broadens the source
+    # search beyond attachment-carrying mail; the pre-filter still gates noise.
+    render_bodyless_emails: bool = True
 
     @model_validator(mode="after")
     def _at_least_one_source(self) -> SourcesConfig:

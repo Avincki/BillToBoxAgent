@@ -13,6 +13,7 @@ from billtobox_agent.data import (
     init_schema,
 )
 from billtobox_agent.mail import FetchedPdf, OutlookConnector, fetch_new_pdfs
+from billtobox_agent.mail.prefilter import PDF_MAGIC
 
 _PDF1 = b"%PDF-1.7 outlook one"
 _PDF2 = b"%PDF-1.7 outlook two"
@@ -69,8 +70,10 @@ class FakeGraphClient:
                     for m in self._messages
                 ]
             }
-        message_id = path.split("/")[3]  # /me/messages/{id}/attachments
-        return {"value": self._by_id[message_id]["attachments"]}
+        message_id = path.split("/")[3]  # /me/messages/{id}[/attachments]
+        if path.endswith("/attachments"):
+            return {"value": self._by_id[message_id]["attachments"]}
+        return {"body": self._by_id[message_id].get("body", {})}  # /me/messages/{id}?$select=body
 
 
 # ----- connector tests --------------------------------------------------------
@@ -78,7 +81,7 @@ class FakeGraphClient:
 
 def test_search_filters_attachments_and_parses_refs() -> None:
     client = FakeGraphClient(_messages())
-    refs = OutlookConnector(client).search()
+    refs = OutlookConnector(client, render_bodyless=False).search()
 
     list_call = next(p for path, p in client.calls if path == "/me/messages")
     assert list_call is not None
@@ -88,12 +91,54 @@ def test_search_filters_attachments_and_parses_refs() -> None:
     assert refs[0].received_at == datetime(2026, 5, 1, 10, 0, tzinfo=UTC)
 
 
+def test_search_bodyless_mode_drops_attachment_filter() -> None:
+    client = FakeGraphClient(_messages())
+    OutlookConnector(client).search()  # render_bodyless=True by default
+
+    list_call = next(p for path, p in client.calls if path == "/me/messages")
+    assert "$filter" not in list_call  # no since, no attachment requirement
+
+
 def test_search_with_since_adds_received_filter() -> None:
     client = FakeGraphClient(_messages())
-    OutlookConnector(client).search(datetime(2026, 5, 1, 12, 0, tzinfo=UTC))
+    OutlookConnector(client, render_bodyless=False).search(datetime(2026, 5, 1, 12, 0, tzinfo=UTC))
 
     list_call = next(p for path, p in client.calls if path == "/me/messages")
     assert "receivedDateTime gt 2026-05-01T12:00:00Z" in list_call["$filter"]
+
+
+def test_download_pdfs_renders_body_when_no_attachment() -> None:
+    message = {
+        "id": "o3",
+        "subject": "Factuur mei",
+        "sender": "facturen@kpn.be",
+        "receivedDateTime": "2026-05-03T09:00:00Z",
+        "attachments": [],
+        "body": {"contentType": "html", "content": "<p>Bedrag: 149,95 EUR</p>"},
+    }
+    connector = OutlookConnector(FakeGraphClient([message]))
+    ref = next(r for r in connector.search() if r.message_id == "o3")
+
+    pdfs = connector.download_pdfs(ref)
+
+    assert len(pdfs) == 1
+    assert pdfs[0].pdf_bytes.startswith(PDF_MAGIC)  # a real, prefilter-passing PDF
+    assert pdfs[0].filename == "outlook-email-20260503.pdf"
+
+
+def test_download_pdfs_skips_body_render_when_disabled() -> None:
+    message = {
+        "id": "o4",
+        "subject": "Factuur mei",
+        "sender": "facturen@kpn.be",
+        "receivedDateTime": "2026-05-04T09:00:00Z",
+        "attachments": [],
+        "body": {"contentType": "text", "content": "Bedrag: 149,95 EUR"},
+    }
+    connector = OutlookConnector(FakeGraphClient([message]), render_bodyless=False)
+    ref = next(r for r in connector.search() if r.message_id == "o4")
+
+    assert connector.download_pdfs(ref) == []  # no attachment, rendering off
 
 
 def test_download_pdfs_decodes_and_skips_non_pdf() -> None:

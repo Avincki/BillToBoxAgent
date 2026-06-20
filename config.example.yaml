@@ -53,6 +53,9 @@ smtp:                              # transport for emailing invoices to Billtobo
 
 # sources:
 #   polling: [gmail, outlook]      # doccle is stubbed until its API is provided
+#   render_bodyless_emails: true   # also collect invoice mail with no PDF attached and
+#                                  # render the message body to a PDF (set false to require
+#                                  # a PDF attachment; the pre-filter still gates noise)
 
 # storage:
 #   sqlite_path: data/billtobox.db

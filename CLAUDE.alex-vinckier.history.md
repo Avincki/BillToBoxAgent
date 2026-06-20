@@ -736,3 +736,34 @@ Next up: **task 25** (on-Pi end-to-end smoke-run) genuinely needs the Raspberry 
 OAuth/Anthropic/Billtobox/SMTP credentials, so it can't be done from here — it's the owner's on-box
 step that this guide drives. **task 26** (ops/troubleshooting README) is the last doc I can write
 fully.
+
+---
+
+## 2026-06-20 — Body-only invoices: render attachment-less mail to PDF
+
+Implemented retrieval + PDF generation for invoice emails that carry **no PDF
+attachment** (the invoice lives in the message body — common with Doccle-style
+notifications). New `mail/render.py`: `render_email_to_pdf(...)` lays out the
+mail metadata (From/Subject/Date) + body onto an A4 PDF via **fpdf2** (pure
+Python — no Cairo/Pango/wkhtmltopdf system libs to install on the Pi or in CI;
+chosen over WeasyPrint for exactly that reason). HTML bodies are flattened to
+text with a stdlib `HTMLParser` (skips `<script>`/`<style>`, breaks on block
+tags); a Latin-1 substitution table keeps €/curly-quotes/dashes legible under
+the core PDF fonts.
+
+Both connectors fall back to rendering inside `download_pdfs` when no PDF
+attachment is present, so the universal `FetchedPdf` contract holds and the whole
+downstream pipeline (pre-filter → hash → Claude extract → Drive → Billtobox)
+works unchanged — and the agent-loop path gets it for free. Search was broadened
+to surface body-only mail: Gmail drops the `has:attachment filename:pdf` clause
+(keeps the invoice keywords, so noise stays server-side bounded); Outlook drops
+`hasAttachments eq true`. Gated by new `sources.render_bodyless_emails` (default
+`true`), threaded through `worker.build_mail_connectors` →
+`{Gmail,Outlook}Connector.from_config(..., render_bodyless=...)`. The rendered
+PDF starts with `%PDF-`, so it passes the pre-filter's PDF-magic gate untouched.
+
+Tests: `tests/unit/test_render.py` (HTML→text, valid-PDF bytes, euro/dash
+fallback, empty body, provenance/filename) + bodyless cases and updated
+query/filter assertions in `test_gmail.py`/`test_outlook.py`. Toolchain green
+(ruff/black/mypy), pytest 188 passed. Added `fpdf2>=2.7,<3.0` to dependencies and
+documented the flag in `config.example.yaml`.
