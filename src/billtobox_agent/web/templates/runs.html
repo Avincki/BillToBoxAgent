@@ -1,7 +1,12 @@
 {% extends "base.html" %}
 {% block title %}Runs &mdash; BillToBoxAgent{% endblock %}
 {% block content %}
-<h2>Run history</h2>
+<div class="actions">
+  <h2>Run history</h2>
+  <form method="post" action="/run">
+    <button type="submit">Run now</button>
+  </form>
+</div>
 {% if not runs %}
 <p class="empty">No runs yet.</p>
 {% else %}

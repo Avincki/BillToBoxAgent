@@ -523,3 +523,48 @@ ruff-format ✓, black ✓, mypy ✓ (44 files), pytest ✓ (155, up from 143).
 Next up: **task 19** — dashboard steering actions (approve/reject, edit fields with a Drive move
 when the quarter changes, re-run extraction, trigger a manual run, approve the Billtobox send), all
 POSTs guarded by `require_same_origin` and routed through the worker's tool functions.
+
+## 2026-06-20 — WORKPLAN task 19: dashboard steering actions
+
+The dashboard's state-changing POSTs, all guarded by `require_same_origin` and delegating to
+worker tool functions (no DB/Drive writes in the web layer). New + extended pieces:
+
+- `pipeline/status.py` — `approve_invoice` (→ `approved`) and `reject_invoice` (→ `rejected`),
+  status-only DECISION tools alongside flag/queue.
+- `drive/connector.py` — `download_pdf(file_id)` (`get_media().execute()` → bytes, for re-extract)
+  and `move_file(file_id, new_parent_id)` (`files.get` parents → `files.update`
+  add/removeParents).
+- `pipeline/steering.py` — `edit_invoice` (apply a field edit; **move the stored PDF only when the
+  new `invoice_date` changes the accounting quarter** — ensure the new quarter folder, move the
+  file, rewrite `drive_path`; `drive` may be `None` for field-only edits) and `reextract_invoice`
+  (download the stored PDF from Drive, run `extract_invoice` again, persist refreshed fields).
+- Repo: `InvoicesRepository.update_fields` (edit; leaves confidence/status/Drive untouched) and
+  `set_drive_path` (after a move).
+- `web/steering.py` — a `require_same_origin`-guarded router: `POST /invoices/{id}/approve`,
+  `/reject`, `/queue-send`, `/edit`, `/reextract`, and `POST /run` (manual run). Each does its work
+  and returns a 303 (POST/redirect/GET). Form values parsed defensively (bad date/amount → 400).
+- `web/app.py` — `create_app` now accepts injectable steering components (`drive`,
+  `anthropic_client`, `mail_connectors`); the lifespan uses the injected ones (tests) or builds
+  them **best-effort** from config (a missing OAuth token leaves a component `None`, so read-only
+  views still start). Manual-run/re-extract return 503 if a needed component is unavailable. Reuses
+  the worker's (now public) `build_mail_connectors`.
+- Templates: action forms (approve/reject/queue/re-extract + an edit form) on the invoice detail
+  page; a "Run now" button on `/runs`; matching CSS.
+
+Design notes: manual-run executes `run_once` synchronously in the request (fine for a manual
+trigger on a small inbox; could be backgrounded later). The edit→move recomputes the period with
+`period_for` inside the move branch for type-clean non-None fy/quarter. The web app imports the
+worker (`web → worker → pipeline`), no cycle.
+
+8 tests (`tests/integration/test_steering.py`) via httpx `AsyncClient` with **injected** fake
+Drive (now also supporting `get`/`update`/`get_media` for move + download), Anthropic, and mail:
+approve/reject/queue status transitions + audit; edit **without** a quarter change makes **no**
+Drive move; edit **changing** the quarter moves the file exactly once and rewrites `drive_path`;
+re-extract refreshes the fields from the model; manual run records a run row + processes a fetched
+message; and a cross-origin POST is 403. Toolchain green under the 3.12 venv: ruff ✓, ruff-format
+✓, black ✓, mypy ✓ (46 files), pytest ✓ (163, up from 155). **Phase 3 is functionally complete.**
+
+Next up: **task 20** — `email_to_billtobox` (SMTP send, hard-guarded on `status==upload_approved`
+and `uploaded_at IS NULL`, attach the PDF from Drive, set `uploaded`). NOTE: the `invoices` table
+has no `uploaded_at` column yet — task 20 will need to add it (model + migration) since the locked
+schema (decisions.md) didn't include it.

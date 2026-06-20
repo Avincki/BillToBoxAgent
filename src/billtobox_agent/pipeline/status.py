@@ -11,6 +11,9 @@ extraction, neither performing any external I/O:
 * :func:`queue_billtobox_upload` marks an item human-approved for the Billtobox
   send (status → ``upload_approved``) and **sends nothing** — the actual SMTP send
   is task 20, guarded on exactly this status.
+* :func:`approve_invoice` / :func:`reject_invoice` are the dashboard's human
+  status decisions (task 19): accept the extraction (→ ``approved``) or discard the
+  item (→ ``rejected``). Status-only, no external I/O.
 
 Each emits a redacted ``DECISION`` ``agent_events`` row so the disposition is
 auditable, mirroring :func:`billtobox_agent.pipeline.dedup.check_duplicate`.
@@ -60,4 +63,45 @@ async def queue_billtobox_upload(
         step=step,
         tool="queue_billtobox_upload",
         outputs={"status": InvoiceStatus.UPLOAD_APPROVED.value},
+    )
+
+
+async def approve_invoice(
+    uow: UnitOfWork,
+    invoice_id: int,
+    *,
+    run_id: int | None = None,
+    step: int = 0,
+) -> None:
+    """Human accepts the extraction: set ``invoice_id`` to ``approved`` (status only)."""
+    await uow.invoices.set_status(invoice_id, InvoiceStatus.APPROVED)
+    await uow.agent_events.add(
+        event_type=AgentEventType.DECISION,
+        summary="Approved by reviewer",
+        run_id=run_id,
+        invoice_id=invoice_id,
+        step=step,
+        tool="approve_invoice",
+        outputs={"status": InvoiceStatus.APPROVED.value},
+    )
+
+
+async def reject_invoice(
+    uow: UnitOfWork,
+    invoice_id: int,
+    *,
+    reason: str | None = None,
+    run_id: int | None = None,
+    step: int = 0,
+) -> None:
+    """Human discards the item: set ``invoice_id`` to ``rejected`` (status only)."""
+    await uow.invoices.set_status(invoice_id, InvoiceStatus.REJECTED)
+    await uow.agent_events.add(
+        event_type=AgentEventType.DECISION,
+        summary="Rejected by reviewer" + (f": {reason}" if reason else ""),
+        run_id=run_id,
+        invoice_id=invoice_id,
+        step=step,
+        tool="reject_invoice",
+        outputs={"status": InvoiceStatus.REJECTED.value, "reason": reason},
     )

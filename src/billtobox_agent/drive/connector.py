@@ -173,3 +173,28 @@ class DriveConnector:
             if self.find_file(candidate, parent_id) is None:
                 return candidate
             suffix += 1
+
+    # ----- download + move (task 19 steering) ---------------------------------
+
+    def download_pdf(self, file_id: str) -> bytes:
+        """Return the raw bytes of a Drive file (used to re-extract a stored PDF)."""
+        data = self._service.files().get_media(fileId=file_id).execute()
+        if not isinstance(data, bytes):
+            raise DriveError(f"Drive returned non-bytes content for file {file_id!r}")
+        return data
+
+    def move_file(self, file_id: str, new_parent_id: str) -> None:
+        """Move ``file_id`` to ``new_parent_id``, detaching its current parents.
+
+        Used when an edited ``invoice_date`` changes the accounting quarter — the
+        stored PDF follows the invoice to the new ``Invoices/<fy>/<quarter>/`` folder
+        (Drive v3 ``files.update`` with add/removeParents).
+        """
+        current = self._service.files().get(fileId=file_id, fields="parents").execute()
+        old_parents = current.get("parents", []) or []
+        self._service.files().update(
+            fileId=file_id,
+            addParents=new_parent_id,
+            removeParents=",".join(old_parents),
+            fields="id, parents",
+        ).execute()

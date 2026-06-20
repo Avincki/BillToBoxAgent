@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Annotated
 
+import anthropic
 from fastapi import Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from billtobox_agent.config.models import AppConfig
 from billtobox_agent.data import UnitOfWork
+from billtobox_agent.drive import DriveConnector
+from billtobox_agent.mail.base import MailConnector
 
 
 def get_config(request: Request) -> AppConfig:
@@ -24,6 +28,22 @@ def get_session_factory(request: Request) -> async_sessionmaker[AsyncSession]:
 def get_uow(request: Request) -> UnitOfWork:
     """A fresh UnitOfWork per request — the route enters ``async with`` itself."""
     return UnitOfWork(get_session_factory(request))
+
+
+def get_drive(request: Request) -> DriveConnector | None:
+    """The Drive connector, or ``None`` if it couldn't be built (missing token)."""
+    drive: DriveConnector | None = request.app.state.drive
+    return drive
+
+
+def get_anthropic(request: Request) -> anthropic.Anthropic | None:
+    client: anthropic.Anthropic | None = request.app.state.anthropic_client
+    return client
+
+
+def get_mail_connectors(request: Request) -> Mapping[str, MailConnector]:
+    connectors: Mapping[str, MailConnector] = request.app.state.mail_connectors
+    return connectors
 
 
 def require_same_origin(request: Request) -> None:
@@ -45,3 +65,6 @@ def require_same_origin(request: Request) -> None:
 
 ConfigDep = Annotated[AppConfig, Depends(get_config)]
 UowDep = Annotated[UnitOfWork, Depends(get_uow)]
+DriveDep = Annotated[DriveConnector | None, Depends(get_drive)]
+AnthropicDep = Annotated[anthropic.Anthropic | None, Depends(get_anthropic)]
+MailConnectorsDep = Annotated[Mapping[str, MailConnector], Depends(get_mail_connectors)]

@@ -106,6 +106,37 @@ button {
 }
 button:hover { border-color: var(--accent); }
 
+.actions {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+.actions h2 { margin: 0; margin-right: auto; }
+.actions form { display: inline-flex; gap: 0.4rem; margin: 0; }
+
+.edit-form {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  margin: 0.5rem 0 1.5rem;
+}
+.edit-form h4 { width: 100%; margin: 0 0 0.25rem; }
+.edit-form label { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.82rem; color: var(--muted); }
+.edit-form input {
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.25rem 0.4rem;
+}
+
 .log-stream {
   height: 70vh;
   overflow-y: auto;

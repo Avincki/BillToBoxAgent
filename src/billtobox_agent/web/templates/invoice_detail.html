@@ -20,6 +20,36 @@
   <tr><th>Updated</th><td>{{ invoice.updated_at | localtime }}</td></tr>
 </table>
 
+<h3>Actions</h3>
+<div class="actions">
+  <form method="post" action="/invoices/{{ invoice.id }}/approve"><button type="submit">Approve</button></form>
+  <form method="post" action="/invoices/{{ invoice.id }}/queue-send"><button type="submit">Approve Billtobox send</button></form>
+  <form method="post" action="/invoices/{{ invoice.id }}/reextract"><button type="submit">Re-extract</button></form>
+  <form method="post" action="/invoices/{{ invoice.id }}/reject" class="actions">
+    <input type="text" name="reason" placeholder="reason (optional)">
+    <button type="submit">Reject</button>
+  </form>
+</div>
+
+<form method="post" action="/invoices/{{ invoice.id }}/edit" class="edit-form">
+  <h4>Edit fields</h4>
+  <label>Vendor
+    <input type="text" name="vendor" value="{{ invoice.vendor or '' }}">
+  </label>
+  <label>Invoice date
+    <input type="date" name="invoice_date" value="{{ invoice.invoice_date or '' }}">
+  </label>
+  <label>Amount
+    <input type="number" step="0.01" name="amount"
+           value="{% if invoice.amount is not none %}{{ '%.2f'|format(invoice.amount) }}{% endif %}">
+  </label>
+  <label>Currency
+    <input type="text" name="currency" maxlength="3" value="{{ invoice.currency or '' }}">
+  </label>
+  <button type="submit">Save</button>
+  <span class="muted small">Changing the date to a new quarter moves the stored PDF in Drive.</span>
+</form>
+
 <h3>Audit trail</h3>
 {% include "_events_table.html" %}
 {% endblock %}

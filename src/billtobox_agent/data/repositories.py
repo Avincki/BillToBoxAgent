@@ -93,6 +93,40 @@ class InvoicesRepository:
         await self._session.flush()
         return invoice
 
+    async def update_fields(
+        self,
+        invoice_id: int,
+        *,
+        vendor: str | None,
+        invoice_date: date | None,
+        amount: float | None,
+        currency: str | None,
+        fy_label: str | None,
+        quarter: str | None,
+    ) -> Invoice:
+        """Apply a human field edit (task 19) + the recomputed period. Leaves
+        confidence, status, and Drive location untouched."""
+        invoice = await self.get(invoice_id)
+        if invoice is None:
+            raise ValueError(f"invoice {invoice_id} not found")
+        invoice.vendor = vendor
+        invoice.invoice_date = invoice_date
+        invoice.amount = amount
+        invoice.currency = currency
+        invoice.fy_label = fy_label
+        invoice.quarter = quarter
+        await self._session.flush()
+        return invoice
+
+    async def set_drive_path(self, invoice_id: int, drive_path: str) -> Invoice:
+        """Update only the logical Drive path (after a quarter-change file move)."""
+        invoice = await self.get(invoice_id)
+        if invoice is None:
+            raise ValueError(f"invoice {invoice_id} not found")
+        invoice.drive_path = drive_path
+        await self._session.flush()
+        return invoice
+
     async def exists_source_message_id(self, source: str, source_message_id: str) -> bool:
         result = await self._session.execute(
             select(Invoice.id)

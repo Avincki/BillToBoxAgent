@@ -27,11 +27,12 @@ from billtobox_agent.pipeline import RunSummary, WorkerContext, run_once
 _log = structlog.get_logger(__name__)
 
 
-def _build_mail_connectors(config: AppConfig) -> dict[str, MailConnector]:
+def build_mail_connectors(config: AppConfig) -> dict[str, MailConnector]:
     """Build a connector for each enabled source; skip (log) any that can't be built.
 
     Doccle and any other source the worker can't build are skipped here, so the
     run simply has no connector for them (run_once records that and moves on).
+    Shared with the dashboard's manual-run trigger (task 19).
     """
     connectors: dict[str, MailConnector] = {}
     for source in config.sources.polling:
@@ -51,7 +52,7 @@ def _build_context(config: AppConfig, engine: AsyncEngine, *, dry_run: bool) -> 
     return WorkerContext(
         config=config,
         session_factory=create_session_factory(engine),
-        mail_connectors=_build_mail_connectors(config),
+        mail_connectors=build_mail_connectors(config),
         drive=DriveConnector.from_config(config.google, config.drive),
         anthropic_client=build_anthropic_client(config.anthropic),
         dry_run=dry_run,
