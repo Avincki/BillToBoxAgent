@@ -568,3 +568,50 @@ Next up: **task 20** — `email_to_billtobox` (SMTP send, hard-guarded on `statu
 and `uploaded_at IS NULL`, attach the PDF from Drive, set `uploaded`). NOTE: the `invoices` table
 has no `uploaded_at` column yet — task 20 will need to add it (model + migration) since the locked
 schema (decisions.md) didn't include it.
+
+## 2026-06-20 — WORKPLAN task 21: the agent tool-calling loop
+
+Jumped ahead of task 20 (Phase 6) to do task 21 — the Phase-4 capstone. Read the `claude-api`
+skill first (CLAUDE.md mandates it for Anthropic/LLM-shaped work): used the **manual agentic
+loop** (Messages API tool-use — `client.messages.create(tools=…)`, loop on `stop_reason`, execute
+`tool_use` blocks, return `tool_result` blocks with `is_error`), model `claude-opus-4-8`.
+
+Added `agent/loop.py`:
+- `AgentContext` (config, session_factory, mail_connectors, drive, anthropic_client, `max_steps`,
+  `max_drive_attempts`) — injected so tests pass fakes. `run_agent(ctx) -> RunSummary` runs the loop.
+- **9 registered tools** with JSON schemas + async handlers that delegate to the task-8–16 pipeline
+  functions: `search_mail`, `get_pdf`, `check_duplicate`, `extract_invoice`, `ensure_quarter_folder`,
+  `store_pdf_to_drive`, `queue_billtobox_upload`, `flag_for_review`, `get_agent_events`. The 10th,
+  `email_to_billtobox`, is task 20 — deliberately **not** registered (the autonomous agent queues,
+  never sends).
+- Key design call: **PDF bytes never enter the model context.** Tools reference fetched PDFs by a
+  small `pdf_ref` handle; the harness (`_AgentState`) holds the bytes and the per-`pdf_ref`
+  extraction result / invoice_id / folder. Tool results are compact JSON; the full redacted record
+  lives in `agent_events`. This keeps context small and is the correct shape for a bytes-heavy
+  pipeline.
+- Re-entrancy: `search_mail` skips already-invoiced `source_message_id`s and advances the watermark;
+  `check_duplicate` skips a stored `content_hash`. Commits per turn. A crash+restart reprocesses
+  nothing (watermark + dedup + agent_events are the recovery state).
+- Self-correction: the `store_pdf_to_drive` handler retries a transient Drive failure up to
+  `max_drive_attempts` (default 3), then returns `is_error` so the model flags the item.
+  `get_agent_events` lets the model inspect its own prior (redacted) steps.
+- Policy: added `BilltoboxConfig.known_vendors`; the system prompt tells the agent to auto-queue
+  only high-confidence invoices from that list.
+
+The harness uses **one** Anthropic client for both orchestration (calls with `tools=`) and the
+`extract_invoice` tool (a document-block call, no tools) — the test fake branches on whether `tools`
+is in the create kwargs. (Adaptive thinking is omitted for now — the tool loop is well-specified and
+deterministic; can be added later per the claude-api guidance.)
+
+4 tests (`tests/integration/test_agent.py`) drive the loop with a **scripted** fake Anthropic client
+(turns of tool calls + canned extractions), fake mail, and a fake Drive (folders + uploads, with an
+opt-in upload failure): a full batch (approved→stored→queued for a known vendor; low-confidence→
+flagged; counts + statuses + run row asserted); an injected transient Drive failure retried exactly
+`max_drive_attempts` times then flagged; a crash+restart that — even with the watermark reset —
+reprocesses nothing via `source_message_id` dedup; and `get_agent_events` returning prior steps with
+the secret redacted to `***`. Toolchain green under the 3.12 venv: ruff ✓, ruff-format ✓, black ✓,
+mypy ✓ (47 files), pytest ✓ (167, up from 163).
+
+Next up: **task 20** (`email_to_billtobox` — SMTP send + the new `uploaded_at` column/migration),
+then the deployment tail (22 systemd, 23 Caddy/Tailscale, 24 Pi guide, 25 on-Pi smoke-run, 26 ops
+README).

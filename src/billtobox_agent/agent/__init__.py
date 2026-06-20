@@ -1,3 +1,5 @@
-"""Worker pipeline and the agent tool-calling loop (tasks 17, 21)."""
+"""The Claude tool-calling agent loop (task 21)."""
 
-from __future__ import annotations
+from billtobox_agent.agent.loop import TOOLS, AgentContext, run_agent
+
+__all__ = ["TOOLS", "AgentContext", "run_agent"]

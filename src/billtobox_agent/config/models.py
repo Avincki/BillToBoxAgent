@@ -68,6 +68,9 @@ class DriveConfig(_StrictModel):
 class BilltoboxConfig(_StrictModel):
     mailbox_address: EmailStr
     sender_address: EmailStr
+    # Vendors the agent may auto-queue for the Billtobox send without human review
+    # when extraction is high-confidence (task 21 policy). Matched case-insensitively.
+    known_vendors: tuple[str, ...] = ()
 
 
 class SmtpConfig(_StrictModel):
