@@ -19,6 +19,7 @@ from billtobox_agent.data.models import (
     AgentEventLevel,
     AgentEventType,
     Invoice,
+    InvoiceStatus,
     Run,
     SourceStatus,
 )
@@ -45,6 +46,17 @@ class InvoicesRepository:
 
     async def exists_content_hash(self, content_hash: str) -> bool:
         return await self.get_by_content_hash(content_hash) is not None
+
+    async def mark_stored(self, invoice_id: int, *, drive_file_id: str, drive_path: str) -> Invoice:
+        """Record a successful Drive upload: set the file id/path and status ``stored``."""
+        invoice = await self.get(invoice_id)
+        if invoice is None:
+            raise ValueError(f"invoice {invoice_id} not found")
+        invoice.drive_file_id = drive_file_id
+        invoice.drive_path = drive_path
+        invoice.status = InvoiceStatus.STORED.value
+        await self._session.flush()
+        return invoice
 
     async def exists_source_message_id(self, source: str, source_message_id: str) -> bool:
         result = await self._session.execute(

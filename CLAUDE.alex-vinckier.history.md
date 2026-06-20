@@ -342,3 +342,45 @@ ruff ✓, ruff-format ✓, black ✓, mypy ✓ (36 files), pytest ✓ (127, up f
 Next up: task 15 (PDF upload to Drive) — `store_pdf_to_drive` under the folder id this task
 returns, with filename sanitisation + collision suffixing, writing `drive_file_id`/`drive_path`
 back to the invoice row.
+
+## 2026-06-20 — WORKPLAN task 15: PDF upload to Google Drive
+
+Built the upload step on top of task 14's `DriveConnector`, same connector + async-tool split:
+
+- `drive/connector.py` — added the file methods: `upload_pdf(name, pdf_bytes, parent_id)`
+  (a `files.create` media upload via `MediaInMemoryUpload`, `mimetype=application/pdf`),
+  `find_file` (the non-folder sibling of `find_folder`, for collision detection), and
+  `store_pdf(base_name, pdf_bytes, parent_id) -> (file_id, final_name)` which resolves a name
+  collision by appending `_2`/`_3`/... to the stem (before `.pdf`) until `find_file` returns
+  nothing, then uploads.
+- `drive/upload.py` — `InvoiceFileFields` (source, invoice_date, amount), `build_filename`
+  (`{source}_{YYYY-MM-DD}_{amount}.pdf`; amount dot-decimal 2dp, `unknown` when missing; each
+  part sanitised — illegal `<>:"/\|?*`+control chars stripped, whitespace collapsed), and the
+  async `store_pdf_to_drive(connector, pdf_bytes, fields, *, folder_id, folder_path, uow,
+  invoice_id, ...)` tool: builds the name, uploads off-thread (`asyncio.to_thread`), composes
+  the logical `drive_path = <folder_path>/<final_name>`, records it on the invoice, and writes
+  redacted `agent_events` (`tool_call` → `tool_result`, or `error` then re-raise; the PDF bytes
+  are redacted to hash+len, never stored).
+- `data/repositories.py` — `InvoicesRepository.mark_stored(invoice_id, *, drive_file_id,
+  drive_path)`: sets the two Drive fields and transitions status `new`→**`stored`** (the
+  `InvoiceStatus.STORED` slot that was unused until now). Updates go through the repo, not raw
+  SQL in the tool, matching the codebase's write-boundary convention.
+
+Design notes: replaced the task's opaque `fields` arg with the typed `InvoiceFileFields`
+dataclass; the tool takes both `folder_id` (the upload target from `ensure_quarter_folder`) and
+`folder_path` (the human-readable prefix `ensure_quarter_folder` already computes) so the stored
+`drive_path` is a real path rather than an opaque id. Collision lookup is per-candidate via
+`find_file` (cheap; folders hold few files).
+
+9 tests (`tests/integration/test_drive_upload.py`) against a fake Drive service that captures
+the uploaded media bytes through the real `MediaInMemoryUpload`: filename formatting (2dp,
+missing-amount `unknown`, illegal-char/whitespace sanitisation); connector collision suffixing
+(`inv.pdf`→`inv_2.pdf`→`inv_3.pdf`) and same-name-different-folder non-collision; and the async
+tool — normal upload (metadata + media round-trip + `(file_id, drive_path)` return + the invoice
+row updated to `stored` + redacted audit with no raw bytes), collision path end-to-end, and the
+error path (row left untouched at `new`, error event recorded). Toolchain green under the 3.12
+venv: ruff ✓, ruff-format ✓, black ✓, mypy ✓ (37 files), pytest ✓ (136, up from 127).
+
+Next up: task 16 (`flag_for_review` + `queue_billtobox_upload`) — the two SQLite-only status
+tools (`reviewed` / `upload_approved`), each emitting an `agent_events` row, no external I/O.
+These plus tasks 13–15 are the pieces the task-17 linear pipeline wires together.

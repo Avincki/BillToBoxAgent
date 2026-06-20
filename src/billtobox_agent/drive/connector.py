@@ -20,6 +20,7 @@ from __future__ import annotations
 from typing import Any
 
 from googleapiclient.discovery import build
+from googleapiclient.http import MediaInMemoryUpload
 
 from billtobox_agent.config.models import DriveConfig, GoogleConfig
 from billtobox_agent.mail.google_auth import load_credentials
@@ -117,3 +118,58 @@ class DriveConnector:
         root_id = self.ensure_root_folder()
         year_id = self.find_or_create_folder(fy_label, root_id)
         return self.find_or_create_folder(quarter, year_id)
+
+    # ----- file upload (task 15) ----------------------------------------------
+
+    def find_file(self, name: str, parent_id: str) -> str | None:
+        """Return the id of a non-trashed, non-folder file ``name`` under ``parent_id``."""
+        query = (
+            f"name = '{_escape_query_value(name)}' "
+            f"and '{_escape_query_value(parent_id)}' in parents "
+            f"and mimeType != '{FOLDER_MIME}' "
+            "and trashed = false"
+        )
+        response = (
+            self._service.files()
+            .list(q=query, spaces="drive", fields="files(id, name)", pageSize=10)
+            .execute()
+        )
+        files = response.get("files", [])
+        if not files:
+            return None
+        file_id = files[0].get("id")
+        return file_id if isinstance(file_id, str) else None
+
+    def upload_pdf(self, name: str, pdf_bytes: bytes, parent_id: str) -> str:
+        """Upload ``pdf_bytes`` as ``name`` under ``parent_id`` and return the file id."""
+        media = MediaInMemoryUpload(pdf_bytes, mimetype="application/pdf", resumable=False)
+        metadata = {"name": name, "parents": [parent_id]}
+        created = (
+            self._service.files().create(body=metadata, media_body=media, fields="id").execute()
+        )
+        file_id = created.get("id")
+        if not isinstance(file_id, str) or not file_id:
+            raise DriveError(f"Drive returned no id when uploading {name!r}")
+        return file_id
+
+    def store_pdf(self, base_name: str, pdf_bytes: bytes, parent_id: str) -> tuple[str, str]:
+        """Upload ``pdf_bytes`` under ``parent_id``, suffixing the name on collision.
+
+        Returns ``(file_id, final_name)`` — ``final_name`` is ``base_name`` unless a
+        file of that name already exists, in which case ``_2``/``_3``/... is appended
+        to the stem (before ``.pdf``) until a free name is found.
+        """
+        name = self._available_name(base_name, parent_id)
+        file_id = self.upload_pdf(name, pdf_bytes, parent_id)
+        return file_id, name
+
+    def _available_name(self, base_name: str, parent_id: str) -> str:
+        if self.find_file(base_name, parent_id) is None:
+            return base_name
+        stem = base_name[:-4] if base_name.lower().endswith(".pdf") else base_name
+        suffix = 2
+        while True:
+            candidate = f"{stem}_{suffix}.pdf"
+            if self.find_file(candidate, parent_id) is None:
+                return candidate
+            suffix += 1
