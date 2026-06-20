@@ -58,6 +58,15 @@ class InvoicesRepository:
         await self._session.flush()
         return invoice
 
+    async def set_status(self, invoice_id: int, status: InvoiceStatus) -> Invoice:
+        """Transition an invoice to ``status`` (a SQLite-only status write)."""
+        invoice = await self.get(invoice_id)
+        if invoice is None:
+            raise ValueError(f"invoice {invoice_id} not found")
+        invoice.status = status.value
+        await self._session.flush()
+        return invoice
+
     async def exists_source_message_id(self, source: str, source_message_id: str) -> bool:
         result = await self._session.execute(
             select(Invoice.id)

@@ -384,3 +384,38 @@ venv: ruff ✓, ruff-format ✓, black ✓, mypy ✓ (37 files), pytest ✓ (136
 Next up: task 16 (`flag_for_review` + `queue_billtobox_upload`) — the two SQLite-only status
 tools (`reviewed` / `upload_approved`), each emitting an `agent_events` row, no external I/O.
 These plus tasks 13–15 are the pieces the task-17 linear pipeline wires together.
+
+## 2026-06-20 — WORKPLAN task 16: flag_for_review + queue_billtobox_upload
+
+The two terminal disposition tools, both SQLite-only. Added `pipeline/status.py`:
+
+- `flag_for_review(uow, invoice_id, reason, *, run_id=None, step=0)` — sets status →
+  `reviewed` and records the reason in a redacted `DECISION` `agent_events` row
+  (`outputs={status, reason}`).
+- `queue_billtobox_upload(uow, invoice_id, *, run_id=None, step=0)` — sets status →
+  `upload_approved` (the human-approved-send flag task 20 guards on) and **sends nothing**;
+  emits a `DECISION` event (`outputs={status}`).
+
+Both mirror `check_duplicate`'s shape (DECISION event at INFO). Added a generic
+`InvoicesRepository.set_status(invoice_id, status)` (raises if the row is missing) as the
+write boundary — the tools never touch the ORM directly.
+
+Key decision — **no schema change.** The WORKPLAN phrasing "records the reason (notes/
+exceptions field)" implied a column, but the *locked* `invoices` schema (decisions.md /
+CLAUDE.alex-vinckier.md) has no notes column by design: per the Layer-B observability model
+(decisions.md §2), the per-invoice reason lives in the `agent_events` audit trail, and the
+dashboard's exceptions queue keys on `status` while the invoice-detail audit trail shows the
+reason. So the reason goes into the event, not a new column — keeping the schema/migration
+untouched and consistent with the locked design.
+
+3 tests (`tests/integration/test_status.py`): flag_for_review flips status + records the exact
+reason in a single DECISION event linked to the invoice; queue_billtobox_upload flips status +
+audits (and sends nothing — no SMTP/Drive client is even in the signature, which is how "no
+external I/O" is guaranteed); and the missing-invoice guard raises. Toolchain green under the
+3.12 venv: ruff ✓, ruff-format ✓, black ✓, mypy ✓ (38 files), pytest ✓ (139, up from 136).
+
+Phase 2's tool set is now complete (extract 13, ensure_quarter_folder 14, store_pdf_to_drive 15,
+flag_for_review/queue 16). Next up: **task 17** — the linear `run_once()` that wires fetch →
+prefilter → dedup → extract → confidence-gate → (ensure_quarter_folder + store_pdf_to_drive |
+flag_for_review) → advance watermark → close the run, with a `--dry-run` mode and full
+`agent_events` per step.
