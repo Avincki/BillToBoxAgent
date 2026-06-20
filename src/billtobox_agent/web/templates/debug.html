@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Debug &mdash; BillToBoxAgent{% endblock %}
+{% block content %}
+<h2>Source health</h2>
+{% if not sources %}
+<p class="empty">No source activity yet.</p>
+{% else %}
+<table>
+  <thead>
+    <tr><th>Source</th><th>Watermark</th><th>Last success</th><th>Last error</th><th>Error message</th></tr>
+  </thead>
+  <tbody>
+  {% for s in sources %}
+    <tr class="{% if s.last_error_at %}level-error{% endif %}">
+      <td>{{ s.source }}</td>
+      <td>{% if s.watermark %}{{ s.watermark | localtime }}{% else %}—{% endif %}</td>
+      <td>{% if s.last_success_at %}{{ s.last_success_at | localtime }}{% else %}—{% endif %}</td>
+      <td>{% if s.last_error_at %}{{ s.last_error_at | localtime }}{% else %}—{% endif %}</td>
+      <td class="small">{{ s.last_error_message or "" }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+<p class="muted"><a href="/logs">Live logs &rarr;</a></p>
+{% endblock %}

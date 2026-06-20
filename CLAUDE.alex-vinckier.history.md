@@ -467,3 +467,59 @@ ruff-format ✓, black ✓, mypy ✓ (40 files), pytest ✓ (143, up from 139). 
 Next up: **task 18** — the FastAPI + Jinja2 read-only dashboard (invoice list, exceptions queue,
 run history, the `/logs` SSE stream + `/debug`, and the `agent_events` activity timeline /
 per-invoice audit trail), bound to `127.0.0.1:9003`. First Phase-3 task.
+
+## 2026-06-20 — WORKPLAN task 18: read-only dashboard + SSE log stream
+
+First Phase-3 task. Used an Explore subagent to extract HEC's `web/` blueprint (app factory,
+views/api split, `_tail_log_sse`, `_config_view` redaction, `require_same_origin`, templates,
+`main.py`) and mirrored it — with the key BillToBox difference that the dashboard is **worker-free**
+(decisions.md §13-F: a separate timer process does the writing, so the lifespan only opens the DB
+and stamps `session_started_at`; no tick loop).
+
+Added the `web/` package:
+- `app.py` — `create_app(config=None, *, config_path=None)` + lifespan (configure_logging, engine,
+  idempotent `init_schema`, session_factory, session_started_at; dispose on shutdown). `docs_url`/
+  `redoc_url` disabled. Mounts `/static`, includes the api + views routers.
+- `dependencies.py` — `get_config`/`get_session_factory`/`get_uow` (per-request UoW) + `ConfigDep`/
+  `UowDep` aliases, and `require_same_origin` (ready for task 19's POSTs; read-only routes don't use
+  it yet).
+- `api.py` — `GET /api/health` (per-source snapshot) and **`GET /api/logs/stream`** — the SSE tailer
+  ported from HEC: session replay by default or `?replay_hours=N`, rotation-safe (reopens when the
+  file shrinks), all file I/O via `asyncio.to_thread`, line-level timestamp filter for the replay
+  window.
+- `views.py` — 7 HTML routes: `/` (invoice list), `/invoices/{id}` (detail + per-invoice audit
+  trail), `/exceptions` (status in new/reviewed), `/runs`, `/activity` (agent_events timeline,
+  filterable by run/invoice/level), `/debug` (source health), `/logs` (live SSE viewer). A
+  `localtime` Jinja filter renders stored UTC in Europe/Brussels.
+- `templates/` (base + 7 pages + a shared `_events_table.html` partial) and `static/style.css`
+  (compact dark theme). The log viewer JS (EventSource → `/api/logs/stream`, level/text filter,
+  pause/clear/follow) is adapted from HEC.
+- Root `main.py` — `python main.py` runs uvicorn against `web.app:create_app` (factory) on
+  `web.host`/`web.port` (**default `127.0.0.1:9003`** — loopback only; Caddy fronts public TLS),
+  `log_config=None`, `timeout_graceful_shutdown=10` to force-close SSE streams; pins `$BTB_CONFIG`
+  so the factory re-reads the validated path.
+
+Repo additions: `RunsRepository.list`, `SourceStatusRepository.list`, `InvoicesRepository
+.list_by_statuses`, and a `level` filter on `AgentEventsRepository.list`.
+
+Two gotchas hit and fixed:
+1. **Detached ORM instances** — the route returned ORM objects, but `UnitOfWork.__aexit__` rolls
+   back (expiring instances) before the template renders. Fix: build the `TemplateResponse` *inside*
+   the `async with uow` block — Starlette renders eagerly, so it runs while the session is open.
+2. **SSE test hung** — consuming the infinite `/api/logs/stream` body over httpx/ASGITransport never
+   returns. Fix: test `_tail_log_sse` directly (deterministic replay assertion via `__anext__` +
+   `aclose`); `/api/health` already proves `/api/*` routing.
+
+Redaction: `agent_events` are stored already redacted (the repo runs `redact()` at write time), so
+the audit-trail and activity views can't leak secrets — the test seeds an event with an `api_key`
+and asserts the raw value never appears in the rendered HTML (only `***`).
+
+12 tests (`tests/integration/test_web.py`) via httpx `AsyncClient` + `ASGITransport` with a
+lifespan-triggered, seeded in-temp DB: every route 200 + expected content, the 404 path, exceptions
+filtering, redacted audit/activity rendering, the level filter, the SSE generator replay, `/api/
+health`, and a check that the default bind is loopback. Toolchain green under the 3.12 venv: ruff ✓,
+ruff-format ✓, black ✓, mypy ✓ (44 files), pytest ✓ (155, up from 143).
+
+Next up: **task 19** — dashboard steering actions (approve/reject, edit fields with a Drive move
+when the quarter changes, re-run extraction, trigger a manual run, approve the Billtobox send), all
+POSTs guarded by `require_same_origin` and routed through the worker's tool functions.

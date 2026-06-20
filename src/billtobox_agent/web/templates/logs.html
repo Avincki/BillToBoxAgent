@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Logs &mdash; BillToBoxAgent{% endblock %}
+{% block content %}
+<h2>Live logs <span id="log-status" class="muted">connecting…</span></h2>
+<div class="log-controls">
+  <label>Min level
+    <select id="log-level">
+      <option value="all">all</option>
+      <option value="debug">debug</option>
+      <option value="info" selected>info</option>
+      <option value="warning">warning</option>
+      <option value="error">error</option>
+    </select>
+  </label>
+  <input id="log-filter" type="text" placeholder="filter text…">
+  <label><input id="log-follow" type="checkbox" checked> follow</label>
+  <button id="log-pause" type="button">Pause</button>
+  <button id="log-clear" type="button">Clear</button>
+</div>
+<div id="log-stream" class="log-stream"></div>
+{% endblock %}
+{% block extra_head %}
+<script>
+(function () {
+  const LEVEL_ORDER = { debug: 10, info: 20, warning: 30, error: 40, critical: 50 };
+  const MAX_ROWS = 1000;
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  window.addEventListener('DOMContentLoaded', function () {
+    const stream = document.getElementById('log-stream');
+    const statusEl = document.getElementById('log-status');
+    const levelEl = document.getElementById('log-level');
+    const filterEl = document.getElementById('log-filter');
+    const followEl = document.getElementById('log-follow');
+    const pauseBtn = document.getElementById('log-pause');
+    const clearBtn = document.getElementById('log-clear');
+    let paused = false;
+
+    function shouldShow(p) {
+      const minLevel = levelEl.value;
+      if (minLevel !== 'all') {
+        const lv = LEVEL_ORDER[(p.level || 'info').toLowerCase()] || 20;
+        if (lv < LEVEL_ORDER[minLevel]) return false;
+      }
+      const needle = filterEl.value.trim().toLowerCase();
+      if (needle && !JSON.stringify(p).toLowerCase().includes(needle)) return false;
+      return true;
+    }
+
+    function renderRow(raw) {
+      let p;
+      try { p = JSON.parse(raw); } catch (e) { p = { event: raw, level: 'info' }; }
+      if (!shouldShow(p)) return;
+      const level = (p.level || 'info').toLowerCase();
+      const known = new Set(['event', 'level', 'logger', 'timestamp']);
+      const extras = Object.entries(p).filter(function (kv) { return !known.has(kv[0]); })
+        .map(function (kv) {
+          return kv[0] + '=' + (typeof kv[1] === 'string' ? kv[1] : JSON.stringify(kv[1]));
+        }).join(' ');
+      const row = document.createElement('div');
+      row.className = 'log-row level-' + level;
+      row.innerHTML =
+        '<span class="log-time">' + escapeHtml(p.timestamp || '') + '</span> ' +
+        '<span class="badge badge-' + level + '">' + escapeHtml(level) + '</span> ' +
+        '<span class="log-logger">' + escapeHtml(p.logger || '') + '</span> ' +
+        '<span class="log-event">' + escapeHtml(p.event || '') + '</span> ' +
+        (extras ? '<span class="log-extras">' + escapeHtml(extras) + '</span>' : '');
+      stream.appendChild(row);
+      while (stream.children.length > MAX_ROWS) stream.firstChild.remove();
+      if (followEl.checked) stream.scrollTop = stream.scrollHeight;
+    }
+
+    const es = new EventSource('/api/logs/stream');
+    es.onopen = function () { statusEl.textContent = 'connected'; };
+    es.onmessage = function (ev) { if (!paused) renderRow(ev.data); };
+    es.onerror = function () { statusEl.textContent = 'reconnecting…'; };
+    pauseBtn.addEventListener('click', function () {
+      paused = !paused;
+      pauseBtn.textContent = paused ? 'Resume' : 'Pause';
+    });
+    clearBtn.addEventListener('click', function () { stream.innerHTML = ''; });
+  });
+})();
+</script>
+{% endblock %}

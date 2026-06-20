@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Invoice {{ invoice.id }} &mdash; BillToBoxAgent{% endblock %}
+{% block content %}
+<p><a href="/">&larr; Invoices</a></p>
+<h2>Invoice #{{ invoice.id }} <span class="badge badge-{{ invoice.status }}">{{ invoice.status }}</span></h2>
+<table class="kv">
+  <tr><th>Source</th><td>{{ invoice.source }} ({{ invoice.source_message_id }})</td></tr>
+  <tr><th>Vendor</th><td>{{ invoice.vendor or "—" }}</td></tr>
+  <tr><th>Invoice date</th><td>{{ invoice.invoice_date or "—" }}</td></tr>
+  <tr><th>Amount</th><td>{% if invoice.amount is not none %}{{ "%.2f"|format(invoice.amount) }} {{ invoice.currency or "" }}{% else %}—{% endif %}</td></tr>
+  <tr><th>Confidence</th><td>{% if invoice.confidence is not none %}{{ "%.0f"|format(invoice.confidence * 100) }}%{% else %}—{% endif %}</td></tr>
+  <tr><th>Quarter folder</th><td>{% if invoice.fy_label %}{{ invoice.fy_label }} / {{ invoice.quarter }}{% else %}—{% endif %}</td></tr>
+  <tr><th>Drive</th><td>
+    {% if invoice.drive_file_id %}
+    <a href="https://drive.google.com/file/d/{{ invoice.drive_file_id }}/view" target="_blank" rel="noopener">{{ invoice.drive_path }}</a>
+    {% else %}—{% endif %}
+  </td></tr>
+  <tr><th>Content hash</th><td class="mono small">{{ invoice.content_hash }}</td></tr>
+  <tr><th>Created</th><td>{{ invoice.created_at | localtime }}</td></tr>
+  <tr><th>Updated</th><td>{{ invoice.updated_at | localtime }}</td></tr>
+</table>
+
+<h3>Audit trail</h3>
+{% include "_events_table.html" %}
+{% endblock %}

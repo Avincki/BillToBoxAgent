@@ -111,6 +111,13 @@ class InvoicesRepository:
         )
         return result.scalars().all()
 
+    async def list_by_statuses(self, statuses: Sequence[str]) -> Sequence[Invoice]:
+        """Invoices in any of ``statuses`` — backs the dashboard exceptions queue."""
+        result = await self._session.execute(
+            select(Invoice).where(Invoice.status.in_(statuses)).order_by(Invoice.created_at.desc())
+        )
+        return result.scalars().all()
+
 
 class RunsRepository:
     def __init__(self, session: AsyncSession) -> None:
@@ -124,6 +131,12 @@ class RunsRepository:
 
     async def get(self, run_id: int) -> Run | None:
         return await self._session.get(Run, run_id)
+
+    async def list(self, limit: int = 50) -> Sequence[Run]:
+        result = await self._session.execute(
+            select(Run).order_by(Run.started_at.desc()).limit(limit)
+        )
+        return result.scalars().all()
 
     async def finish(
         self,
@@ -151,6 +164,11 @@ class SourceStatusRepository:
 
     async def get(self, source: str) -> SourceStatus | None:
         return await self._session.get(SourceStatus, source)
+
+    async def list(self) -> Sequence[SourceStatus]:
+        """All per-source health rows — backs the dashboard /debug table."""
+        result = await self._session.execute(select(SourceStatus).order_by(SourceStatus.source))
+        return result.scalars().all()
 
     async def get_or_create(self, source: str) -> SourceStatus:
         row = await self.get(source)
@@ -216,6 +234,7 @@ class AgentEventsRepository:
         *,
         run_id: int | None = None,
         invoice_id: int | None = None,
+        level: str | None = None,
         limit: int = 100,
     ) -> Sequence[AgentEvent]:
         stmt = select(AgentEvent)
@@ -223,6 +242,8 @@ class AgentEventsRepository:
             stmt = stmt.where(AgentEvent.run_id == run_id)
         if invoice_id is not None:
             stmt = stmt.where(AgentEvent.invoice_id == invoice_id)
+        if level is not None:
+            stmt = stmt.where(AgentEvent.level == level)
         stmt = stmt.order_by(AgentEvent.id.desc()).limit(limit)
         result = await self._session.execute(stmt)
         return result.scalars().all()

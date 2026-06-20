@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Agent activity &mdash; BillToBoxAgent{% endblock %}
+{% block content %}
+<h2>Agent activity</h2>
+<form method="get" action="/activity" class="filters">
+  <label>Run <input type="number" name="run_id" value="{% if filters.run_id is not none %}{{ filters.run_id }}{% endif %}"></label>
+  <label>Invoice <input type="number" name="invoice_id" value="{% if filters.invoice_id is not none %}{{ filters.invoice_id }}{% endif %}"></label>
+  <label>Level
+    <select name="level">
+      <option value="">any</option>
+      {% for lv in ["info", "warning", "error"] %}
+      <option value="{{ lv }}"{% if filters.level == lv %} selected{% endif %}>{{ lv }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <button type="submit">Filter</button>
+  <a href="/activity" class="muted">reset</a>
+</form>
+{% include "_events_table.html" %}
+{% endblock %}

@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Invoices &mdash; BillToBoxAgent{% endblock %}
+{% block content %}
+<h2>Invoices</h2>
+{% if not invoices %}
+<p class="empty">No invoices yet.</p>
+{% else %}
+<table>
+  <thead>
+    <tr>
+      <th>Source</th><th>Vendor</th><th>Date</th><th>Amount</th><th>Cur</th>
+      <th>Conf.</th><th>Status</th><th>Quarter</th><th>Drive</th><th></th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for inv in invoices %}
+    <tr>
+      <td>{{ inv.source }}</td>
+      <td>{{ inv.vendor or "—" }}</td>
+      <td>{{ inv.invoice_date or "—" }}</td>
+      <td class="num">{% if inv.amount is not none %}{{ "%.2f"|format(inv.amount) }}{% else %}—{% endif %}</td>
+      <td>{{ inv.currency or "" }}</td>
+      <td class="num">{% if inv.confidence is not none %}{{ "%.0f"|format(inv.confidence * 100) }}%{% else %}—{% endif %}</td>
+      <td><span class="badge badge-{{ inv.status }}">{{ inv.status }}</span></td>
+      <td>{% if inv.fy_label %}{{ inv.fy_label }}/{{ inv.quarter }}{% else %}—{% endif %}</td>
+      <td>
+        {% if inv.drive_file_id %}
+        <a href="https://drive.google.com/file/d/{{ inv.drive_file_id }}/view" target="_blank" rel="noopener">open</a>
+        {% else %}—{% endif %}
+      </td>
+      <td><a href="/invoices/{{ inv.id }}">details</a></td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endblock %}

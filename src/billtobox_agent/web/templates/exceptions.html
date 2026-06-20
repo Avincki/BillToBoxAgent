@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Exceptions &mdash; BillToBoxAgent{% endblock %}
+{% block content %}
+<h2>Exceptions queue</h2>
+<p class="muted">Invoices awaiting review &mdash; low confidence, not-an-invoice, failed uploads, or not yet processed.</p>
+{% if not invoices %}
+<p class="empty">Nothing needs attention.</p>
+{% else %}
+<table>
+  <thead>
+    <tr><th>Source</th><th>Vendor</th><th>Date</th><th>Amount</th><th>Conf.</th><th>Status</th><th></th></tr>
+  </thead>
+  <tbody>
+  {% for inv in invoices %}
+    <tr>
+      <td>{{ inv.source }}</td>
+      <td>{{ inv.vendor or "—" }}</td>
+      <td>{{ inv.invoice_date or "—" }}</td>
+      <td class="num">{% if inv.amount is not none %}{{ "%.2f"|format(inv.amount) }}{% else %}—{% endif %}</td>
+      <td class="num">{% if inv.confidence is not none %}{{ "%.0f"|format(inv.confidence * 100) }}%{% else %}—{% endif %}</td>
+      <td><span class="badge badge-{{ inv.status }}">{{ inv.status }}</span></td>
+      <td><a href="/invoices/{{ inv.id }}">details</a></td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endblock %}

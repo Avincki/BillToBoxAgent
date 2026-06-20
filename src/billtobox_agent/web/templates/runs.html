@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Runs &mdash; BillToBoxAgent{% endblock %}
+{% block content %}
+<h2>Run history</h2>
+{% if not runs %}
+<p class="empty">No runs yet.</p>
+{% else %}
+<table>
+  <thead>
+    <tr>
+      <th>#</th><th>Started</th><th>Ended</th>
+      <th>Fetched</th><th>Extracted</th><th>Stored</th><th>Flagged</th><th>Errors</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for r in runs %}
+    <tr>
+      <td>{{ r.id }}</td>
+      <td>{{ r.started_at | localtime }}</td>
+      <td>{% if r.ended_at %}{{ r.ended_at | localtime }}{% else %}<span class="muted">running…</span>{% endif %}</td>
+      <td class="num">{{ r.items_fetched }}</td>
+      <td class="num">{{ r.items_extracted }}</td>
+      <td class="num">{{ r.items_stored }}</td>
+      <td class="num">{{ r.items_flagged }}</td>
+      <td class="small">{{ r.error_summary or "" }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endblock %}

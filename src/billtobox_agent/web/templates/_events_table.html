@@ -1,0 +1,26 @@
+{% if not events %}
+<p class="empty">No events.</p>
+{% else %}
+<table class="events">
+  <thead>
+    <tr>
+      <th>Time</th><th>Step</th><th>Level</th><th>Type</th><th>Tool</th>
+      <th>Summary</th><th>Inputs</th><th>Outputs</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for e in events %}
+    <tr class="level-{{ e.level }}">
+      <td>{{ e.ts | localtime }}</td>
+      <td class="num">{{ e.step }}</td>
+      <td><span class="badge badge-{{ e.level }}">{{ e.level }}</span></td>
+      <td>{{ e.event_type }}</td>
+      <td>{{ e.tool or "" }}</td>
+      <td>{{ e.summary }}</td>
+      <td class="mono small">{% if e.inputs_json is not none %}{{ e.inputs_json | tojson }}{% endif %}</td>
+      <td class="mono small">{% if e.outputs_json is not none %}{{ e.outputs_json | tojson }}{% endif %}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
