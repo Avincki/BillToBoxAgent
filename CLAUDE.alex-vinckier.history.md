@@ -224,3 +224,42 @@ ruff ✓, ruff-format ✓, black ✓, mypy ✓ (31 files), pytest ✓ (100, up f
 
 Next up: add the CI workflow; then task 12 (content-hash dedup) — `prefilter` and the
 hash check are the two cheap gates before extraction in the task-17 pipeline.
+
+## 2026-06-20 — CI workflow live on GitHub
+
+Got `.github/workflows/ci.yml` onto `origin/main` and green. It had been held back
+since task 3 because the `gh` token lacked the `workflow` scope. The owner first
+tried the GitHub web editor, but the paste mangled the YAML indentation (twice —
+`concurrency`/`jobs` ended up nested under `pull_request`, tokens split mid-line),
+so the three resulting runs failed at 0s (unparseable). Fix: rebased the local task-11
+commit onto the two web commits, overwrote the broken `ci.yml` with the correct
+on-disk content, validated it parses (`yaml.safe_load`), committed. The push was
+still rejected for the missing scope, so the owner ran `gh auth refresh -s workflow`
+(this time it granted — the earlier failure was an incomplete interactive flow, not a
+hard restriction). Pushed; CI ran clean on Python 3.11 **and** 3.12 (ruff, ruff-format,
+black, mypy, pytest), ~40s each. Lesson for next time: **upload the file, don't paste**
+it into the web editor (or just push with the workflow-scoped token). Only annotation
+is GitHub's Node-20-deprecation notice on checkout@v4/setup-python@v5 — cosmetic;
+bump the action majors when convenient.
+
+## 2026-06-20 — WORKPLAN task 12: Content-hash deduplication
+
+Added the `pipeline` package (new home for the linear-worker steps that aren't owned
+by an external-service domain — distinct from `agent/`, the future LLM tool-loop):
+`pipeline/dedup.py` with `compute_content_hash(pdf_bytes)` (SHA-256 hex via the
+existing `utils.hashing.sha256_hex`) and `async check_duplicate(uow, content_hash,
+*, run_id=None, step=0) -> bool`. The query plumbing already existed from task 5
+(`InvoicesRepository.get_by_content_hash`/`exists_content_hash` + the UNIQUE
+`content_hash` constraint); task 12 wraps it as the pipeline gate: on a hit it emits
+a redacted `DECISION` agent-event (`tool="check_duplicate"`, linked to the invoice
+that already holds the hash, outputs `{content_hash, duplicate_of_invoice_id}`) and
+returns True so the caller skips before any model call; on a miss it returns False and
+writes nothing. Full pipeline wiring lands in task 17 (`run_once`).
+
+3 tests (`tests/integration/test_dedup.py`): hash is content-addressed + stable;
+unseen hash → False with no event; seen hash → True, audited once, no re-insert, and
+a different hash still → False — covering the acceptance criteria exactly. Toolchain
+green: ruff ✓, ruff-format ✓, black ✓, mypy ✓ (33 files), pytest ✓ (103, up from 100).
+
+Next up: task 13 (Claude extraction) — the first model call, gated by `prefilter`
+(task 11) and `check_duplicate` (task 12).
