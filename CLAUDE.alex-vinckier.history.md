@@ -303,3 +303,42 @@ Phase 2 has begun.
 
 Next up: task 14 (Drive quarter-folder management) — `ensure_quarter_folder` via Drive v3,
 reusing the task-8 Google creds + `period_for` (task 6).
+
+## 2026-06-20 — WORKPLAN task 14: Google Drive quarter-folder management
+
+Built the Drive folder layer, mirroring the connector + async-tool split used for mail
+and extraction:
+
+- `drive/connector.py` — `DriveConnector`, the sync Drive v3 wrapper (like `GmailConnector`):
+  `from_config(google, drive)` reuses the **task-8 Google credentials** + the shared
+  `drive.file` scope already in `GOOGLE_SCOPES` and builds the v3 service. **Find-before-create**
+  primitives — `find_folder` (a `files.list` filtered on name + parent + `mimeType=folder` +
+  `trashed=false`), `create_folder`, `find_or_create_folder` — plus `ensure_root_folder()`
+  (creates the root `Invoices` folder on first run, memoised) and `ensure_quarter_path(fy_label,
+  quarter)` which walks/creates `<root>/<fy_label>/<quarter>/` and returns the leaf id.
+  Single-quote escaping on the Drive `q` string; `DriveError` on a malformed create response.
+- `drive/folders.py` — `ensure_quarter_folder(...)`, the async pipeline tool (like
+  `extract_invoice`/`check_duplicate`): computes `(fy_label, quarter)` via **`period_for`**
+  (task 6), runs the sync Drive calls off-thread (`asyncio.to_thread`), and writes redacted
+  `agent_events` (`tool_call` → `tool_result`, or `error` then re-raise on failure).
+
+Root-folder persistence (decisions.md #9, "records its ID"): because the `drive.file` scope
+only ever lists the app's *own* folders, find-or-create-by-name re-finds the same root on
+every later run, so idempotency holds **without** a separate id store (there's no general
+key-value table, and `source_status` is per-mail-source). The optional `drive.root_folder_id`
+config field lets the operator pin it to skip the root lookup. Flagged to the owner as a
+possible follow-up (an `app_state` table) if a hard-persisted id is wanted later.
+
+9 tests (`tests/integration/test_drive_folders.py`) against a hand-rolled fake Drive service
+that resolves the connector's `q` string so find-before-create behaves like real Drive:
+full-tree creation with find-before-create at every level, twice-same-quarter creates nothing,
+a **fresh connector** (new process, same Drive) reuses rather than recreates, a second quarter
+reuses root+year, pinned-root skips the root lookup, quote escaping, and the async tool's
+calendar + fiscal-offset date mapping, audit trail, and error path. Hit (and fixed) the
+same `DetachedInstanceError` trap as the dedup test — read ORM attributes into plain locals
+*inside* the `async with` before the session closes. Toolchain green under the 3.12 venv:
+ruff ✓, ruff-format ✓, black ✓, mypy ✓ (36 files), pytest ✓ (127, up from 118).
+
+Next up: task 15 (PDF upload to Drive) — `store_pdf_to_drive` under the folder id this task
+returns, with filename sanitisation + collision suffixing, writing `drive_file_id`/`drive_path`
+back to the invoice row.
