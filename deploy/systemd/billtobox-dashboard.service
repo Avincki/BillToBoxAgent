@@ -1,0 +1,30 @@
+[Unit]
+Description=BillToBox dashboard (read-only web UI)
+Documentation=https://github.com/Avincki/BillToBoxAgent
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+# Long-lived web app. Binds web.host:web.port from config.yaml (default
+# 127.0.0.1:9003); Caddy fronts public TLS (CONVENTIONS.md §11). The port is
+# never hardcoded here — main.py reads it from config.
+Type=simple
+User=billtobox
+Group=billtobox
+WorkingDirectory=/opt/billtobox/BillToBoxAgent
+Environment=BTB_CONFIG=/opt/billtobox/BillToBoxAgent/config.yaml
+ExecStart=/opt/billtobox/BillToBoxAgent/.venv/bin/python main.py
+Restart=on-failure
+RestartSec=5
+# main.py passes timeout_graceful_shutdown=10 to uvicorn; give it headroom.
+TimeoutStopSec=15
+
+# Hardening (CONVENTIONS.md §10).
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/billtobox/BillToBoxAgent
+
+[Install]
+WantedBy=multi-user.target

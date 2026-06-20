@@ -1,0 +1,4 @@
+# Shell scripts and systemd units are deployed on Linux — keep them LF so a
+# Windows checkout/commit can't introduce CRLF that breaks bash/systemd.
+*.sh text eol=lf
+deploy/systemd/** text eol=lf

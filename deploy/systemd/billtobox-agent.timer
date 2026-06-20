@@ -1,0 +1,18 @@
+[Unit]
+Description=BillToBox invoice agent — daily schedule
+Documentation=https://github.com/Avincki/BillToBoxAgent
+
+[Timer]
+# Default daily run at 07:00 local (decisions.md #8). Override the schedule
+# without editing this file via a drop-in, e.g.:
+#   sudo systemctl edit billtobox-agent.timer
+#   [Timer]
+#   OnCalendar=
+#   OnCalendar=*-*-* 06:30:00
+OnCalendar=*-*-* 07:00:00
+# Catch up a run missed while the Pi was off.
+Persistent=true
+Unit=billtobox-agent.service
+
+[Install]
+WantedBy=timers.target

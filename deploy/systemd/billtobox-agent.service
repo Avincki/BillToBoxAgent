@@ -1,0 +1,27 @@
+[Unit]
+Description=BillToBox invoice agent — one processing cycle
+Documentation=https://github.com/Avincki/BillToBoxAgent
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+# Oneshot: runs one fetch->extract->file cycle and exits. Driven by
+# billtobox-agent.timer (hence no [Install] section here).
+Type=oneshot
+User=billtobox
+Group=billtobox
+WorkingDirectory=/opt/billtobox/BillToBoxAgent
+# Config is injected inline (YAML at this path), never via EnvironmentFile.
+Environment=BTB_CONFIG=/opt/billtobox/BillToBoxAgent/config.yaml
+ExecStart=/opt/billtobox/BillToBoxAgent/.venv/bin/python -m billtobox_agent.worker
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=15
+
+# Hardening (CONVENTIONS.md §10). ReadWritePaths covers the SQLite DB, WAL
+# sidecars, logs, and OAuth token files, all under the app directory.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/billtobox/BillToBoxAgent
